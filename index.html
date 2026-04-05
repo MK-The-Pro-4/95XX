@@ -1,0 +1,3612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>95XX — Your Retro Desktop</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
+ 
+  :root {
+    --win-gray: #c0c0c0;
+    --win-dark: #808080;
+    --win-darker: #404040;
+    --win-blue: #000080;
+    --win-teal: #008080;
+    --win-white: #ffffff;
+    --win-black: #000000;
+    --win-btn-face: #d4d0c8;
+    --win-btn-shadow: #808080;
+    --win-btn-hilite: #ffffff;
+    --win-btn-dk-shadow: #404040;
+    --taskbar-h: 36px;
+  }
+ 
+  /* Loading Screen */
+  #loading-screen {
+    position: fixed; inset: 0; background: #000;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 99999;
+    gap: 28px;
+  }
+  #loading-screen.fade-out {
+    animation: fadeOutScreen 0.6s forwards;
+  }
+  @keyframes fadeOutScreen {
+    to { opacity: 0; pointer-events: none; }
+  }
+  .load-title {
+    font-family: 'VT323', monospace;
+    font-size: 140px;
+    letter-spacing: 8px;
+    line-height: 1;
+    display: flex;
+    gap: 2px;
+    animation: glowPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.4) drop-shadow(0 0 18px rgba(255,255,255,0.3)); }
+  }
+  .load-title .l9  { color: #ff2222; text-shadow: 0 0 10px #ff2222, 0 0 30px #ff0000, 0 0 60px #ff000088; }
+  .load-title .l5  { color: #ffdd00; text-shadow: 0 0 10px #ffdd00, 0 0 30px #ffcc00, 0 0 60px #ffcc0088; }
+  .load-title .lX1 { color: #00dd44; text-shadow: 0 0 10px #00dd44, 0 0 30px #00ff44, 0 0 60px #00ff4488; }
+  .load-title .lX2 { color: #2288ff; text-shadow: 0 0 10px #2288ff, 0 0 30px #0066ff, 0 0 60px #0066ff88; }
+  .load-bar-wrap {
+    width: 340px;
+    height: 22px;
+    border: 2px solid #444;
+    background: #111;
+    position: relative;
+    overflow: hidden;
+  }
+  #load-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: #ffffff;
+    transition: width 0.08s linear;
+    box-shadow: 0 0 8px rgba(255,255,255,0.5);
+  }
+  .load-bar-shine {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 18px,
+      rgba(255,255,255,0.07) 18px, rgba(255,255,255,0.07) 20px
+    );
+  }
+  .load-pct {
+    font-family: 'Share Tech Mono', monospace;
+    color: #888;
+    font-size: 13px;
+    letter-spacing: 2px;
+    margin-top: -12px;
+  }
+  .load-msg {
+    font-family: 'Share Tech Mono', monospace;
+    color: #444;
+    font-size: 11px;
+    letter-spacing: 1px;
+    height: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+ 
+  body {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    background: var(--win-teal);
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+ 
+  /* Desktop */
+  #desktop {
+    width: 100%; height: calc(100% - var(--taskbar-h));
+    position: relative;
+    background: var(--win-teal);
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
+      repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+ 
+  /* Desktop Icons */
+  .desk-icon {
+    position: absolute;
+    width: 72px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; padding: 4px; border-radius: 2px;
+  }
+  .desk-icon:hover { background: rgba(0,0,128,0.3); }
+  .desk-icon .icon-img {
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; line-height: 1;
+  }
+  .desk-icon span {
+    color: white; font-size: 11px; text-align: center;
+    text-shadow: 1px 1px 1px #000, -1px -1px 1px #000;
+    word-break: break-word;
+  }
+ 
+  /* Taskbar */
+  #taskbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: var(--taskbar-h);
+    background: var(--win-btn-face);
+    border-top: 2px solid var(--win-btn-hilite);
+    display: flex; align-items: center; gap: 4px; padding: 2px 4px;
+    box-shadow: inset 0 1px 0 #fff;
+  }
+ 
+  #start-btn {
+    height: 28px; padding: 0 8px;
+    background: var(--win-btn-face);
+    border-top: 2px solid var(--win-btn-hilite);
+    border-left: 2px solid var(--win-btn-hilite);
+    border-right: 2px solid var(--win-btn-dk-shadow);
+    border-bottom: 2px solid var(--win-btn-dk-shadow);
+    cursor: pointer; font-family: 'VT323', monospace; font-size: 18px;
+    display: flex; align-items: center; gap: 4px; font-weight: bold;
+    letter-spacing: 1px;
+  }
+  #start-btn:active, #start-btn.active {
+    border-top: 2px solid var(--win-btn-dk-shadow);
+    border-left: 2px solid var(--win-btn-dk-shadow);
+    border-right: 2px solid var(--win-btn-hilite);
+    border-bottom: 2px solid var(--win-btn-hilite);
+  }
+ 
+  #taskbar-tasks { flex: 1; display: flex; gap: 4px; align-items: center; overflow: hidden; }
+ 
+  .task-btn {
+    height: 26px; padding: 0 8px; font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    background: var(--win-btn-face);
+    border-top: 2px solid var(--win-btn-hilite);
+    border-left: 2px solid var(--win-btn-hilite);
+    border-right: 2px solid var(--win-btn-dk-shadow);
+    border-bottom: 2px solid var(--win-btn-dk-shadow);
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
+  }
+  .task-btn.active {
+    border-top: 2px solid var(--win-btn-dk-shadow);
+    border-left: 2px solid var(--win-btn-dk-shadow);
+    border-right: 2px solid var(--win-btn-hilite);
+    border-bottom: 2px solid var(--win-btn-hilite);
+  }
+ 
+  #clock {
+    padding: 0 8px; border: 1px inset var(--win-dark); height: 26px;
+    display: flex; align-items: center; font-size: 12px; min-width: 60px;
+    background: var(--win-btn-face);
+    border-top: 1px solid var(--win-btn-shadow);
+    border-left: 1px solid var(--win-btn-shadow);
+    border-right: 1px solid var(--win-btn-hilite);
+    border-bottom: 1px solid var(--win-btn-hilite);
+  }
+ 
+  /* Start Menu */
+  #start-menu {
+    display: none; position: absolute; bottom: var(--taskbar-h); left: 0;
+    width: 220px; background: var(--win-btn-face);
+    border-top: 2px solid var(--win-btn-hilite);
+    border-left: 2px solid var(--win-btn-hilite);
+    border-right: 2px solid var(--win-btn-dk-shadow);
+    border-bottom: 2px solid var(--win-btn-dk-shadow);
+    z-index: 9999; box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  }
+  #start-menu.show { display: flex; }
+  #start-menu-sidebar {
+    width: 28px; background: var(--win-blue);
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px;
+  }
+  #start-menu-sidebar span {
+    writing-mode: vertical-lr; transform: rotate(180deg);
+    color: white; font-family: 'VT323', monospace; font-size: 20px; letter-spacing: 2px;
+  }
+  #start-menu-items { flex: 1; padding: 4px 0; }
+  .start-item {
+    padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px;
+  }
+  .start-item:hover { background: var(--win-blue); color: white; }
+  .start-sep { height: 1px; background: var(--win-dark); margin: 4px 8px; }
+ 
+  /* Windows */
+  .window {
+    position: absolute;
+    min-width: 300px; min-height: 200px;
+    background: var(--win-btn-face);
+    border-top: 2px solid var(--win-btn-hilite);
+    border-left: 2px solid var(--win-btn-hilite);
+    border-right: 2px solid var(--win-btn-dk-shadow);
+    border-bottom: 2px solid var(--win-btn-dk-shadow);
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+  .window.hidden { display: none; }
+  .window.focused .win-titlebar { background: var(--win-blue); }
+ 
+  .win-titlebar {
+    background: var(--win-dark);
+    color: white; padding: 3px 4px;
+    display: flex; align-items: center; gap: 6px;
+    cursor: move; height: 24px;
+    font-family: 'VT323', monospace; font-size: 16px;
+  }
+  .win-title { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .win-btns { display: flex; gap: 2px; }
+  .win-btn {
+    width: 18px; height: 16px; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--win-btn-face); color: black; cursor: pointer;
+    border-top: 1px solid var(--win-btn-hilite);
+    border-left: 1px solid var(--win-btn-hilite);
+    border-right: 1px solid var(--win-btn-dk-shadow);
+    border-bottom: 1px solid var(--win-btn-dk-shadow);
+    font-weight: bold;
+  }
+  .win-btn:active {
+    border-top: 1px solid var(--win-btn-dk-shadow);
+    border-left: 1px solid var(--win-btn-dk-shadow);
+    border-right: 1px solid var(--win-btn-hilite);
+    border-bottom: 1px solid var(--win-btn-hilite);
+  }
+ 
+  .win-menubar {
+    background: var(--win-btn-face); border-bottom: 1px solid var(--win-dark);
+    padding: 2px 4px; display: flex; gap: 2px;
+  }
+  .win-menu-item { padding: 2px 6px; cursor: pointer; }
+  .win-menu-item:hover { background: var(--win-blue); color: white; }
+ 
+  .win-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+ 
+  /* Resize handle */
+  .win-resize {
+    position: absolute; bottom: 0; right: 0;
+    width: 12px; height: 12px; cursor: se-resize;
+    background: linear-gradient(135deg, transparent 50%, var(--win-dark) 50%);
+  }
+ 
+  /* ===== SWAG BROWSER ===== */
+  #swag-browser { width: 700px; height: 520px; top: 60px; left: 80px; }
+ 
+  .browser-toolbar {
+    padding: 4px; display: flex; align-items: center; gap: 4px;
+    border-bottom: 1px solid var(--win-dark);
+    background: var(--win-btn-face);
+  }
+  .browser-btn {
+    padding: 2px 8px; cursor: pointer; font-size: 11px;
+    background: var(--win-btn-face);
+    border-top: 1px solid var(--win-btn-hilite);
+    border-left: 1px solid var(--win-btn-hilite);
+    border-right: 1px solid var(--win-btn-dk-shadow);
+    border-bottom: 1px solid var(--win-btn-dk-shadow);
+    white-space: nowrap;
+  }
+  .browser-btn:active {
+    border-top: 1px solid var(--win-btn-dk-shadow);
+    border-left: 1px solid var(--win-btn-dk-shadow);
+  }
+  #browser-url {
+    flex: 1; height: 22px; border: 2px inset var(--win-dark);
+    padding: 0 4px; font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    background: white; user-select: text;
+  }
+  #browser-content {
+    flex: 1; background: white; overflow-y: auto; padding: 12px;
+    font-family: 'Share Tech Mono', monospace; font-size: 13px;
+    position: relative;
+  }
+  #browser-iframe {
+    flex: 1; width: 100%; border: none; display: none;
+  }
+ 
+  /* Swag Search Page */
+  .swag-page { display: flex; flex-direction: column; align-items: center; padding-top: 40px; }
+  .swag-logo {
+    font-family: 'VT323', monospace; font-size: 72px;
+    background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00, #00ff00, #0000ff, #8800ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 4px; line-height: 1; margin-bottom: 8px;
+  }
+  .swag-tagline { color: #666; font-size: 12px; margin-bottom: 24px; }
+  .swag-search-box { display: flex; gap: 0; margin-bottom: 16px; }
+  #swag-input {
+    width: 340px; height: 30px; border: 1px solid #ccc; border-radius: 24px 0 0 24px;
+    padding: 0 16px; font-family: Arial, sans-serif; font-size: 14px;
+    outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    user-select: text;
+  }
+  #swag-input:focus { border-color: #4285f4; box-shadow: 0 0 0 2px rgba(66,133,244,0.2); }
+  .swag-btn {
+    height: 30px; padding: 0 16px; cursor: pointer;
+    border: 1px solid #ccc; border-left: none; border-radius: 0 24px 24px 0;
+    font-size: 13px; background: #f8f9fa; font-family: Arial, sans-serif;
+  }
+  .swag-btn:hover { background: #e8e8e8; }
+  .swag-results { width: 100%; max-width: 520px; margin-top: 8px; }
+  .swag-result { padding: 10px 0 12px; border-bottom: 1px solid #f0f0f0; }
+  .swag-result-title { color: #1a0dab; font-size: 15px; font-family: Arial,sans-serif; text-decoration: none; cursor: pointer; display: block; margin-bottom: 2px; font-weight: normal; }
+  .swag-result-title:hover { text-decoration: underline; }
+  .swag-result .url { color: #006621; font-size: 11px; font-family: Arial,sans-serif; margin-bottom: 3px; }
+  .swag-result .desc { color: #545454; font-size: 12px; line-height: 1.5; font-family: Arial,sans-serif; }
+  .swag-loading { text-align: center; padding: 40px; color: #666; font-family: Arial,sans-serif; }
+  .swag-spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid #f3f3f3; border-top: 3px solid #4285f4; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .swag-error { color: #c00; font-family: Arial,sans-serif; padding: 20px; font-size: 13px; }
+  .swag-results-header { font-family: Arial,sans-serif; font-size: 12px; color: #666; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #ebebeb; }
+  #swag-iframe-bar { display:none; padding:3px 6px; background:var(--win-btn-face); border-bottom:1px solid var(--win-dark); font-size:11px; align-items:center; gap:6px; }
+  #swag-iframe-bar.visible { display:flex; }
+  .iframe-url-display { flex:1; font-size:10px; color:#333; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+ 
+  /* ===== PAINT APP ===== */
+  #paint-app { width: 620px; height: 520px; top: 80px; left: 120px; }
+ 
+  .paint-toolbar {
+    padding: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--win-dark); background: var(--win-btn-face);
+  }
+  .paint-tool {
+    width: 30px; height: 28px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px;
+    border-top: 1px solid var(--win-btn-hilite);
+    border-left: 1px solid var(--win-btn-hilite);
+    border-right: 1px solid var(--win-btn-dk-shadow);
+    border-bottom: 1px solid var(--win-btn-dk-shadow);
+    background: var(--win-btn-face);
+  }
+  .paint-tool.active, .paint-tool:active {
+    border-top: 1px solid var(--win-btn-dk-shadow);
+    border-left: 1px solid var(--win-btn-dk-shadow);
+    border-right: 1px solid var(--win-btn-hilite);
+    border-bottom: 1px solid var(--win-btn-hilite);
+    background: #b8b8b8;
+  }
+  .paint-sep { width: 1px; height: 24px; background: var(--win-dark); margin: 0 4px; }
+  .size-btn { font-size: 10px; width: 24px; height: 24px; }
+ 
+  .paint-colors {
+    display: flex; flex-wrap: wrap; width: 150px; gap: 2px;
+  }
+  .color-swatch {
+    width: 14px; height: 14px; cursor: pointer; border: 1px solid #666;
+  }
+  .color-swatch.active { border: 2px solid #000; }
+ 
+  .paint-current {
+    display: flex; flex-direction: column; gap: 2px; margin-left: 4px;
+  }
+  .paint-current-color {
+    width: 28px; height: 28px; border: 2px solid #000;
+  }
+ 
+  #paint-canvas-wrap { flex: 1; overflow: auto; background: #808080; display: flex; align-items: flex-start; justify-content: flex-start; padding: 8px; }
+  #paint-canvas { cursor: crosshair; border: 2px inset var(--win-dark); background: white; display: block; }
+ 
+  .paint-status { height: 22px; border-top: 1px solid var(--win-dark); display: flex; align-items: center; padding: 0 8px; font-size: 11px; gap: 16px; background: var(--win-btn-face); }
+ 
+  /* ===== PUZZLE APP ===== */
+  #puzzle-app { width: 520px; height: 480px; top: 100px; left: 140px; }
+ 
+  #puzzle-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 12px; overflow: hidden; }
+ 
+  #puzzle-grid {
+    display: grid;
+    gap: 3px;
+    background: #444;
+    border: 3px solid #444;
+  }
+  .puzzle-tile {
+    width: 80px; height: 80px;
+    background: var(--win-btn-face);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'VT323', monospace; font-size: 40px;
+    cursor: pointer;
+    border-top: 3px solid var(--win-btn-hilite);
+    border-left: 3px solid var(--win-btn-hilite);
+    border-right: 3px solid var(--win-btn-dk-shadow);
+    border-bottom: 3px solid var(--win-btn-dk-shadow);
+    transition: transform 0.1s;
+  }
+  .puzzle-tile:not(.empty):hover { background: #ddd; transform: scale(0.97); }
+  .puzzle-tile.empty { background: #888; border-color: #666; cursor: default; }
+ 
+  #puzzle-info { display: flex; gap: 20px; font-size: 13px; }
+  #puzzle-controls { display: flex; gap: 8px; }
+ 
+  /* ===== SNAKE GAME ===== */
+  #snake-app { width: 420px; height: 460px; top: 90px; left: 160px; }
+  #snake-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px; background: #000; }
+  #snake-canvas { border: 2px solid #0f0; display: block; }
+  #snake-hud { display: flex; gap: 20px; color: #0f0; font-family: 'VT323', monospace; font-size: 20px; }
+  #snake-msg { color: #0f0; font-family: 'VT323', monospace; font-size: 24px; text-align: center; display: none; }
+  .snake-btn {
+    padding: 4px 16px; font-family: 'VT323', monospace; font-size: 18px;
+    background: #003300; color: #0f0; border: 1px solid #0f0; cursor: pointer;
+  }
+  .snake-btn:hover { background: #005500; }
+ 
+  /* Win95 Buttons */
+  .btn95 {
+    padding: 4px 14px; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    background: var(--win-btn-face);
+    border-top: 2px solid var(--win-btn-hilite);
+    border-left: 2px solid var(--win-btn-hilite);
+    border-right: 2px solid var(--win-btn-dk-shadow);
+    border-bottom: 2px solid var(--win-btn-dk-shadow);
+  }
+  .btn95:active {
+    border-top: 2px solid var(--win-btn-dk-shadow);
+    border-left: 2px solid var(--win-btn-dk-shadow);
+    border-right: 2px solid var(--win-btn-hilite);
+    border-bottom: 2px solid var(--win-btn-hilite);
+  }
+ 
+  /* Input inset */
+  .input95 {
+    border-top: 2px solid var(--win-btn-dk-shadow);
+    border-left: 2px solid var(--win-btn-dk-shadow);
+    border-right: 2px solid var(--win-btn-hilite);
+    border-bottom: 2px solid var(--win-btn-hilite);
+    background: white; padding: 2px 4px;
+    font-family: 'Share Tech Mono', monospace; font-size: 12px;
+  }
+ 
+  /* Scrollbar (retro) */
+  ::-webkit-scrollbar { width: 16px; height: 16px; }
+  ::-webkit-scrollbar-track { background: var(--win-btn-face); border: 1px solid var(--win-dark); }
+  ::-webkit-scrollbar-thumb { background: var(--win-btn-face); border: 1px solid var(--win-dark); box-shadow: inset 1px 1px 0 white; }
+  ::-webkit-scrollbar-button { background: var(--win-btn-face); border: 1px solid var(--win-dark); height: 16px; width: 16px; }
+ 
+  /* Welcome Popup */
+  #welcome { z-index: 1000; width: 360px; height: 200px; top: 120px; left: 200px; }
+  #welcome .win-body { padding: 20px; gap: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #welcome p { text-align: center; line-height: 1.6; font-size: 13px; }
+ 
+  /* Notepad dropdown menus */
+  .np-menu-item { padding: 4px 16px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+  .np-menu-item:hover { background: var(--win-blue); color: white; }
+  .np-menu-sep { height: 1px; background: var(--win-dark); margin: 3px 4px; }
+ 
+  /* Battery widget */
+  #battery-widget {
+    display: flex; align-items: center; gap: 4px; padding: 0 6px; height: 26px;
+    border-top: 1px solid var(--win-btn-shadow);
+    border-left: 1px solid var(--win-btn-shadow);
+    border-right: 1px solid var(--win-btn-hilite);
+    border-bottom: 1px solid var(--win-btn-hilite);
+    background: var(--win-btn-face); font-size: 11px; cursor: default;
+  }
+  #battery-shell {
+    width: 28px; height: 13px; border: 2px solid #333; border-radius: 2px;
+    position: relative; background: #fff; overflow: visible;
+  }
+  #battery-nub {
+    position: absolute; right: -5px; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 6px; background: #333; border-radius: 0 1px 1px 0;
+  }
+  #battery-fill {
+    height: 100%; width: 100%; background: #00c400; border-radius: 1px;
+    transition: width 0.4s, background 0.4s;
+  }
+  #battery-pct { font-size: 10px; font-family: 'Share Tech Mono', monospace; min-width: 30px; }
+ 
+  /* Glitch / hack overlays */
+  #hack-overlay {
+    display: none; position: fixed; inset: 0; z-index: 50000;
+    pointer-events: none;
+  }
+  #death-screen {
+    display: none; position: fixed; inset: 0; z-index: 99999;
+    background: #000; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  #death-screen canvas { max-width: 100vw; max-height: 85vh; image-rendering: pixelated; }
+  #death-msg {
+    color: #ff0000; font-family: 'VT323', monospace; font-size: 28px;
+    margin-top: 16px; text-align: center; animation: flicker 0.15s infinite;
+    text-shadow: 0 0 12px #f00, 0 0 40px #f00;
+  }
+  @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:0.7} }
+ 
+  /* Glitch scanlines */
+  .glitch-line {
+    position: absolute; left: 0; right: 0; height: 3px;
+    background: rgba(0,255,0,0.18); pointer-events: none;
+    animation: scanmove 0.08s linear infinite;
+  }
+  @keyframes scanmove { from{top:0} to{top:100%} }
+ 
+  /* CRT glitch flicker on whole body */
+  body.glitching {
+    animation: glitchbody 0.12s steps(1) infinite;
+  }
+  @keyframes glitchbody {
+    0%   { filter: none; }
+    10%  { filter: hue-rotate(90deg) saturate(3) brightness(1.4); }
+    20%  { filter: invert(0.15) hue-rotate(200deg); }
+    30%  { filter: none; }
+    40%  { filter: saturate(0) brightness(0.6); }
+    50%  { filter: hue-rotate(180deg) contrast(2); }
+    60%  { filter: none; }
+    70%  { filter: invert(0.08); }
+    80%  { filter: hue-rotate(270deg) saturate(4) brightness(1.2); }
+    90%  { filter: none; }
+    100% { filter: none; }
+  }
+  /* Gallery */
+  .gallery-frame {
+    background: #222; border: 3px solid #555;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    aspect-ratio: 4/3;
+  }
+  .gallery-frame svg { display: block; width: 100%; height: 100%; }
+ 
+  /* Notepad */
+  .notepad-menu-item { padding: 4px 20px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+  .notepad-menu-item:hover { background: var(--win-blue); color: white; }
+  .notepad-sep { height: 1px; background: var(--win-dark); margin: 3px 6px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="load-title">
+    <span class="l9">9</span><span class="l5">5</span><span class="lX1">X</span><span class="lX2">X</span>
+  </div>
+  <div class="load-bar-wrap">
+    <div id="load-bar-fill"></div>
+    <div class="load-bar-shine"></div>
+  </div>
+  <div class="load-pct" id="load-pct">0%</div>
+  <div class="load-msg" id="load-msg">Initializing system...</div>
+</div>
+
+ 
+<!-- DESKTOP -->
+<div id="desktop">
+  <!-- Desktop Icons -->
+  <div class="desk-icon" style="top:20px;left:20px" ondblclick="openWindow('swag-browser')">
+    <div class="icon-img">🌐</div>
+    <span>Swag Browser</span>
+  </div>
+  <div class="desk-icon" style="top:110px;left:20px" ondblclick="openWindow('paint-app')">
+    <div class="icon-img">🎨</div>
+    <span>95XX Paint</span>
+  </div>
+  <div class="desk-icon" style="top:200px;left:20px" ondblclick="openWindow('puzzle-app')">
+    <div class="icon-img">🧩</div>
+    <span>Slide Puzzle</span>
+  </div>
+  <div class="desk-icon" style="top:290px;left:20px" ondblclick="openWindow('snake-app')">
+    <div class="icon-img">🐍</div>
+    <span>Snake!</span>
+  </div>
+  <div class="desk-icon" style="top:380px;left:20px" ondblclick="openWindow('welcome')">
+    <div class="icon-img">📋</div>
+    <span>Welcome</span>
+  </div>
+  <div class="desk-icon" style="top:470px;left:20px" ondblclick="openWindow('notepad-app')">
+    <div class="icon-img">📝</div>
+    <span>Notepad</span>
+  </div>
+  <div class="desk-icon" style="top:20px;left:100px" ondblclick="openWindow('gallery-app')">
+    <div class="icon-img">🖼️</div>
+    <span>Photo Gallery</span>
+  </div>
+</div>
+ 
+<!-- TASKBAR -->
+<div id="taskbar">
+  <button id="start-btn" onclick="toggleStart()">⊞ Start</button>
+  <div id="taskbar-tasks"></div>
+  <div id="battery-widget" title="Battery Status">
+    <div id="battery-shell">
+      <div id="battery-fill"></div>
+      <div id="battery-nub"></div>
+    </div>
+    <span id="battery-pct">100%</span>
+  </div>
+  <div id="clock">12:00</div>
+</div>
+ 
+<!-- START MENU -->
+<div id="start-menu">
+  <div id="start-menu-sidebar"><span>95XX</span></div>
+  <div id="start-menu-items">
+    <div class="start-item" onclick="openWindow('swag-browser');closeStart()">🌐 Swag Browser</div>
+    <div class="start-item" onclick="openWindow('paint-app');closeStart()">🎨 95XX Paint</div>
+    <div class="start-item" onclick="openWindow('puzzle-app');closeStart()">🧩 Slide Puzzle</div>
+    <div class="start-item" onclick="openWindow('snake-app');closeStart()">🐍 Snake!</div>
+    <div class="start-item" onclick="openWindow('notepad-app');closeStart()">📝 Notepad</div>
+    <div class="start-item" onclick="openWindow('gallery-app');closeStart()">🖼️ Photo Gallery</div>
+    <div class="start-sep"></div>
+    <div class="start-item" onclick="openWindow('welcome');closeStart()">📋 Welcome</div>
+    <div class="start-sep"></div>
+    <div class="start-item" onclick="closeStart()">🔒 Lock Desktop</div>
+  </div>
+</div>
+ 
+<!-- ======= SWAG BROWSER ======= -->
+<div class="window hidden" id="swag-browser">
+  <div class="win-titlebar" onmousedown="startDrag(event,'swag-browser')">
+    <span>🌐</span>
+    <span class="win-title">Swag Browser — Surfin' the Web</span>
+    <div class="win-btns">
+      <div class="win-btn" onclick="minimizeWindow('swag-browser')">_</div>
+      <div class="win-btn" onclick="closeWindow('swag-browser')">✕</div>
+    </div>
+  </div>
+  <div class="win-menubar">
+    <span class="win-menu-item">File</span>
+    <span class="win-menu-item">Edit</span>
+    <span class="win-menu-item">View</span>
+    <span class="win-menu-item">Favorites</span>
+    <span class="win-menu-item">Help</span>
+  </div>
+  <div class="browser-toolbar">
+    <button class="browser-btn" onclick="swagBack()">◀ Back</button>
+    <button class="browser-btn" onclick="swagForward()">Forward ▶</button>
+    <button class="browser-btn" onclick="swagHome()">🏠</button>
+    <input id="browser-url" type="text" value="swag://home" onkeydown="if(event.key==='Enter') swagNavigate()"/>
+    <button class="browser-btn" onclick="swagNavigate()">Go!</button>
+  </div>
+  <div id="swag-iframe-bar">
+    <button class="browser-btn" onclick="closeIframe()">← Results</button>
+    <span class="iframe-url-display" id="iframe-url-display"></span>
+    <button class="browser-btn" onclick="openInNewTab()">↗ Open</button>
+  </div>
+  <div class="win-body" style="position:relative;display:flex;flex-direction:column">
+    <div id="browser-content" style="flex:1;overflow-y:auto;background:white;padding:12px;font-family:Share Tech Mono,monospace;font-size:13px"></div>
+    <iframe id="browser-iframe" style="flex:1;width:100%;border:none;display:none" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"></iframe>
+  </div>
+  <div class="win-resize" onmousedown="startResize(event,'swag-browser')"></div>
+</div>
+ 
+<!-- ======= PAINT APP ======= -->
+<div class="window hidden" id="paint-app">
+  <div class="win-titlebar" onmousedown="startDrag(event,'paint-app')">
+    <span>🎨</span>
+    <span class="win-title">95XX Paint</span>
+    <div class="win-btns">
+      <div class="win-btn" onclick="minimizeWindow('paint-app')">_</div>
+      <div class="win-btn" onclick="closeWindow('paint-app')">✕</div>
+    </div>
+  </div>
+  <div class="win-menubar">
+    <span class="win-menu-item">File</span>
+    <span class="win-menu-item" onclick="clearCanvas()">Clear</span>
+    <span class="win-menu-item">View</span>
+    <span class="win-menu-item">Help</span>
+  </div>
+  <div class="win-body">
+    <div class="paint-toolbar">
+      <div class="paint-tool active" id="tool-pencil" title="Pencil" onclick="setTool('pencil')">✏️</div>
+      <div class="paint-tool" id="tool-brush" title="Brush" onclick="setTool('brush')">🖌️</div>
+      <div class="paint-tool" id="tool-eraser" title="Eraser" onclick="setTool('eraser')">⬜</div>
+      <div class="paint-tool" id="tool-fill" title="Fill" onclick="setTool('fill')">🪣</div>
+      <div class="paint-tool" id="tool-line" title="Line" onclick="setTool('line')">╱</div>
+      <div class="paint-tool" id="tool-rect" title="Rectangle" onclick="setTool('rect')">▭</div>
+      <div class="paint-tool" id="tool-circle" title="Circle" onclick="setTool('circle')">○</div>
+      <div class="paint-sep"></div>
+      <div class="paint-tool size-btn" title="Small" onclick="setBrushSize(2)">•</div>
+      <div class="paint-tool size-btn" title="Medium" onclick="setBrushSize(6)">●</div>
+      <div class="paint-tool size-btn" title="Large" onclick="setBrushSize(14)">⬤</div>
+      <div class="paint-sep"></div>
+      <div class="paint-colors" id="paint-colors"></div>
+      <div class="paint-current">
+        <div id="paint-fg" class="paint-current-color" style="background:#000"></div>
+      </div>
+    </div>
+    <div id="paint-canvas-wrap">
+      <canvas id="paint-canvas" width="560" height="340"></canvas>
+    </div>
+    <div class="paint-status">
+      <span id="paint-pos">0, 0</span>
+      <span id="paint-tool-name">Tool: Pencil</span>
+    </div>
+  </div>
+  <div class="win-resize" onmousedown="startResize(event,'paint-app')"></div>
+</div>
+ 
+<!-- ======= PUZZLE APP ======= -->
+<div class="window hidden" id="puzzle-app">
+  <div class="win-titlebar" onmousedown="startDrag(event,'puzzle-app')">
+    <span>🧩</span>
+    <span class="win-title">Slide Puzzle</span>
+    <div class="win-btns">
+      <div class="win-btn" onclick="minimizeWindow('puzzle-app')">_</div>
+      <div class="win-btn" onclick="closeWindow('puzzle-app')">✕</div>
+    </div>
+  </div>
+  <div class="win-body" id="puzzle-body">
+    <div id="puzzle-info">
+      <span>Moves: <b id="puzzle-moves">0</b></span>
+      <span>Best: <b id="puzzle-best">—</b></span>
+    </div>
+    <div id="puzzle-grid"></div>
+    <div id="puzzle-controls">
+      <button class="btn95" onclick="shufflePuzzle()">Shuffle</button>
+      <button class="btn95" onclick="solvePuzzle()">Show Solution</button>
+    </div>
+    <div id="puzzle-status" style="font-size:13px;color:#000080;font-weight:bold;height:18px;"></div>
+  </div>
+</div>
+ 
+<!-- ======= SNAKE GAME ======= -->
+<div class="window hidden" id="snake-app">
+  <div class="win-titlebar" onmousedown="startDrag(event,'snake-app')">
+    <span>🐍</span>
+    <span class="win-title">Snake!</span>
+    <div class="win-btns">
+      <div class="win-btn" onclick="minimizeWindow('snake-app')">_</div>
+      <div class="win-btn" onclick="closeWindow('snake-app')">✕</div>
+    </div>
+  </div>
+  <div id="snake-body" class="win-body">
+    <div id="snake-hud">
+      <span>Score: <span id="snake-score">0</span></span>
+      <span>High: <span id="snake-hi">0</span></span>
+      <span>Level: <span id="snake-level">1</span></span>
+    </div>
+    <canvas id="snake-canvas" width="360" height="300"></canvas>
+    <div id="snake-msg"></div>
+    <button class="snake-btn" id="snake-start-btn" onclick="startSnake()">▶ START</button>
+    <div style="color:#0f0;font-size:11px;font-family:monospace;text-align:center">Arrow keys or WASD to move</div>
+  </div>
+</div>
+ 
+<!-- ======= WELCOME ======= -->
+<div class="window" id="welcome" style="width:420px;height:280px;top:120px;left:200px">
+  <div class="win-titlebar" onmousedown="startDrag(event,'welcome')">
+    <span>📋</span>
+    <span class="win-title">Welcome to 95XX!</span>
+    <div class="win-btns">
+      <div class="win-btn" onclick="closeWindow('welcome')">✕</div>
+    </div>
+  </div>
+  <div class="win-body" style="padding:20px;display:flex;flex-direction:column;gap:16px;align-items:center">
+    <p style="font-family:VT323,monospace;font-size:32px;color:#000080">Welcome to 95XX!</p>
+    <p style="text-align:center;line-height:1.8;font-size:14px">Your retro desktop experience.<br>Double-click icons or use the <b>Start</b> menu.<br>Try <b>Swag Browser</b>, <b>Paint</b>, <b>Puzzle</b> & <b>Snake</b>!</p>
+    <p style="text-align:center;line-height:1.8;font-style:italic;color:#444;font-size:13px">You can uncover the mysteries of— I MEAN you can browse through content! ENJOY!</p>
+    <button class="btn95" onclick="closeWindow('welcome')">OK, Let's Go!</button>
+  </div>
+</div>
+ 
+<!-- ======= NOTEPAD ======= -->
+<div class="window hidden" id="notepad-app" style="width:500px;height:420px;top:100px;left:160px">
+  <div class="win-titlebar" onmousedown="startDrag(event,'notepad-app')">
+    <span>📝</span>
+    <span class="win-title" id="notepad-title">Untitled — Notepad</span>
+    <div class="win-btns">
+      <div class="win-btn" onclick="minimizeWindow('notepad-app')">_</div>
+      <div class="win-btn" onclick="closeWindow('notepad-app')">✕</div>
+    </div>
+  </div>
+  <div class="win-menubar" style="position:relative">
+    <span class="win-menu-item" onclick="npToggleMenu('np-file-menu')">File</span>
+    <span class="win-menu-item" onclick="npToggleMenu('np-edit-menu')">Edit</span>
+    <span class="win-menu-item" onclick="npToggleMenu('np-format-menu')">Format</span>
+    <span class="win-menu-item" onclick="showNotepadHelp()">Help</span>
+    <!-- Dropdowns -->
+    <div id="np-file-menu" style="display:none;position:absolute;top:22px;left:0;z-index:9999;background:var(--win-btn-face);border-top:1px solid var(--win-btn-hilite);border-left:1px solid var(--win-btn-hilite);border-right:1px solid var(--win-btn-dk-shadow);border-bottom:1px solid var(--win-btn-dk-shadow);min-width:150px;box-shadow:2px 2px 4px rgba(0,0,0,0.3)">
+      <div class="np-menu-item" onclick="notepadNew()">New</div>
+      <div class="np-menu-item" onclick="notepadSaveTxt()">Save as .txt</div>
+      <div class="np-menu-sep"></div>
+      <div class="np-menu-item" onclick="closeNpMenus();closeWindow('notepad-app')">Exit</div>
+    </div>
+    <div id="np-edit-menu" style="display:none;position:absolute;top:22px;left:32px;z-index:9999;background:var(--win-btn-face);border-top:1px solid var(--win-btn-hilite);border-left:1px solid var(--win-btn-hilite);border-right:1px solid var(--win-btn-dk-shadow);border-bottom:1px solid var(--win-btn-dk-shadow);min-width:170px;box-shadow:2px 2px 4px rgba(0,0,0,0.3)">
+      <div class="np-menu-item" onclick="notepadUndo()">Undo &nbsp;&nbsp; Ctrl+Z</div>
+      <div class="np-menu-sep"></div>
+      <div class="np-menu-item" onclick="notepadSelectAll()">Select All &nbsp; Ctrl+A</div>
+      <div class="np-menu-sep"></div>
+      <div class="np-menu-item" onclick="notepadTime()">Time/Date &nbsp; F5</div>
+    </div>
+    <div id="np-format-menu" style="display:none;position:absolute;top:22px;left:66px;z-index:9999;background:var(--win-btn-face);border-top:1px solid var(--win-btn-hilite);border-left:1px solid var(--win-btn-hilite);border-right:1px solid var(--win-btn-dk-shadow);border-bottom:1px solid var(--win-btn-dk-shadow);min-width:140px;box-shadow:2px 2px 4px rgba(0,0,0,0.3)">
+      <div class="np-menu-item" id="np-wrap-item" onclick="toggleWordWrap()">✓ Word Wrap</div>
+      <div class="np-menu-sep"></div>
+      <div class="np-menu-item" onclick="setNpFont('Share Tech Mono')">Monospace</div>
+      <div class="np-menu-item" onclick="setNpFont('Arial')">Sans-serif</div>
+      <div class="np-menu-item" onclick="setNpFont('Georgia')">Serif</div>
+      <div class="np-menu-item" onclick="setNpFont(\'VT323\')">Retro</div>
+    </div>
+  </div>
+  <div class="win-body" style="display:flex;flex-direction:column">
+    <textarea id="notepad-textarea"
+      style="flex:1;resize:none;border:none;outline:none;padding:6px 8px;font-family:'Share Tech Mono',monospace;font-size:13px;line-height:1.6;background:white;color:#000;white-space:pre-wrap;overflow-wrap:normal;overflow:auto;user-select:text"
+      spellcheck="false"
+      oninput="notepadDirty()"
+      onkeydown="notepadKeydown(event)"
+      onclick="updateNpStatus()"
+      onkeyup="updateNpStatus()"
+      placeholder="Start typing...">49 20 77 61 6E 64 65 72 20 69 6E 20 64 61 72 6B
+6E 65 73 73 20 62 75 74 20 6E 65 76 65 72 20 69
+6E 20 6C 69 67 68 74 2E 20 49 20 66 65 65 64 20
+6F 66 66 20 74 68 65 69 72 20 68 65 61 64 73 20
+61 6E 64 20 64 65 73 74 72 6F 79 20 74 68 65 69
+72 20 74 72 75 73 74 2E 20 4D 57 41 20 48 41 57
+20 48 41 57 20 48 41 57 21 21 21</textarea>
+    <div style="height:20px;border-top:1px solid var(--win-dark);background:var(--win-btn-face);display:flex;align-items:center;padding:0 8px;gap:20px;font-size:10px;color:#333;flex-shrink:0">
+      <span id="np-status-pos">Ln 1, Col 1</span>
+      <span id="np-status-words">0 words</span>
+      <span id="np-status-chars">0 chars</span>
+      <span id="np-status-wrap" style="margin-left:auto">Wrap: ON</span>
+    </div>
+  </div>
+  <div class="win-resize" onmousedown="startResize(event,'notepad-app')"></div>
+</div>
+ 
+<!-- ======= PHOTO GALLERY ======= -->
+<div class="window hidden" id="gallery-app" style="top:80px;left:160px;width:580px;height:500px;">
+  <div class="win-titlebar" onmousedown="startDrag(event,'gallery-app')">
+    <span>🖼️</span>
+    <span class="win-title">Photo Gallery</span>
+    <div class="win-btns">
+      <div class="win-btn" onclick="minimizeWindow('gallery-app')">_</div>
+      <div class="win-btn" onclick="closeWindow('gallery-app')">✕</div>
+    </div>
+  </div>
+  <div class="win-menubar">
+    <span class="win-menu-item">File</span>
+    <span class="win-menu-item">View</span>
+    <span class="win-menu-item">Help</span>
+  </div>
+  <div class="win-body" style="background:#333;overflow:auto;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start;">
+ 
+    <!-- PHOTO 1: Cute Puppies -->
+    <div class="gallery-frame" title="Cute Puppies!">
+      <svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+        <!-- Sky/grass background -->
+        <rect width="240" height="180" fill="#87CEEB"/>
+        <rect y="120" width="240" height="60" fill="#4CAF50"/>
+        <ellipse cx="60" cy="40" rx="35" ry="22" fill="white" opacity="0.8"/>
+        <ellipse cx="170" cy="30" rx="28" ry="18" fill="white" opacity="0.7"/>
+        <ellipse cx="200" cy="50" rx="20" ry="13" fill="white" opacity="0.6"/>
+        <!-- Flowers -->
+        <circle cx="20" cy="122" r="4" fill="#FF6B9D"/><rect x="19" y="124" width="2" height="8" fill="#2d8a2d"/>
+        <circle cx="50" cy="120" r="4" fill="#FFD700"/><rect x="49" y="122" width="2" height="8" fill="#2d8a2d"/>
+        <circle cx="190" cy="121" r="4" fill="#FF6B9D"/><rect x="189" y="123" width="2" height="8" fill="#2d8a2d"/>
+        <circle cx="220" cy="123" r="4" fill="#FF4500"/><rect x="219" y="125" width="2" height="8" fill="#2d8a2d"/>
+ 
+        <!-- PUPPY 1 (golden, left) -->
+        <g transform="translate(38,85)">
+          <!-- tail wagging -->
+          <ellipse cx="-18" cy="-8" rx="14" ry="5" fill="#D2691E" transform="rotate(-30,-18,-8)"/>
+          <!-- body -->
+          <ellipse cx="0" cy="0" rx="26" ry="20" fill="#D2691E"/>
+          <!-- head -->
+          <circle cx="22" cy="-14" r="16" fill="#D2691E"/>
+          <!-- left ear -->
+          <ellipse cx="14" cy="-26" rx="7" ry="11" fill="#A0522D" transform="rotate(-20,14,-26)"/>
+          <!-- right ear -->
+          <ellipse cx="30" cy="-27" rx="7" ry="11" fill="#A0522D" transform="rotate(20,30,-27)"/>
+          <!-- snout -->
+          <ellipse cx="34" cy="-10" rx="9" ry="7" fill="#C4A070"/>
+          <!-- nose -->
+          <ellipse cx="36" cy="-12" rx="4" ry="3" fill="#1a1a1a"/>
+          <!-- eyes -->
+          <circle cx="20" cy="-18" r="3.5" fill="#1a1a1a"/><circle cx="21" cy="-19" r="1" fill="white"/>
+          <circle cx="28" cy="-18" r="3.5" fill="#1a1a1a"/><circle cx="29" cy="-19" r="1" fill="white"/>
+          <!-- mouth -->
+          <path d="M30,-6 Q34,-3 38,-6" stroke="#1a1a1a" stroke-width="1.5" fill="none"/>
+          <!-- tongue -->
+          <ellipse cx="34" cy="-3" rx="4" ry="5" fill="#FF6B9D"/>
+          <!-- paws -->
+          <ellipse cx="-12" cy="18" rx="8" ry="5" fill="#C4A070"/>
+          <ellipse cx="8" cy="20" rx="8" ry="5" fill="#C4A070"/>
+          <ellipse cx="24" cy="19" rx="8" ry="5" fill="#C4A070"/>
+        </g>
+ 
+        <!-- PUPPY 2 (spotty, right) -->
+        <g transform="translate(168,90)">
+          <!-- tail -->
+          <ellipse cx="20" cy="-10" rx="13" ry="5" fill="#f5f5f5" transform="rotate(25,20,-10)"/>
+          <!-- body -->
+          <ellipse cx="0" cy="0" rx="28" ry="20" fill="#f5f5f5"/>
+          <ellipse cx="-5" cy="-5" rx="8" ry="6" fill="#555"/>
+          <ellipse cx="10" cy="5" rx="6" ry="5" fill="#555"/>
+          <!-- head -->
+          <circle cx="-22" cy="-14" r="17" fill="#f5f5f5"/>
+          <ellipse cx="-16" cy="-6" rx="7" ry="5" fill="#555"/>
+          <!-- ears floppy -->
+          <ellipse cx="-32" cy="-24" rx="7" ry="12" fill="#ccc" transform="rotate(15,-32,-24)"/>
+          <ellipse cx="-14" cy="-27" rx="7" ry="12" fill="#ccc" transform="rotate(-10,-14,-27)"/>
+          <!-- snout -->
+          <ellipse cx="-34" cy="-10" rx="9" ry="7" fill="#e0d8d0"/>
+          <!-- nose -->
+          <ellipse cx="-36" cy="-12" rx="4" ry="3" fill="#1a1a1a"/>
+          <!-- eyes -->
+          <circle cx="-26" cy="-18" r="3.5" fill="#4a3000"/><circle cx="-25" cy="-19" r="1" fill="white"/>
+          <circle cx="-18" cy="-18" r="3.5" fill="#4a3000"/><circle cx="-17" cy="-19" r="1" fill="white"/>
+          <!-- tongue -->
+          <ellipse cx="-34" cy="-4" rx="4" ry="5" fill="#FF6B9D"/>
+          <!-- paws -->
+          <ellipse cx="-16" cy="18" rx="8" ry="5" fill="#e0d8d0"/>
+          <ellipse cx="0" cy="20" rx="8" ry="5" fill="#e0d8d0"/>
+          <ellipse cx="16" cy="18" rx="8" ry="5" fill="#e0d8d0"/>
+        </g>
+ 
+        <!-- PUPPY 3 (tiny, center front) -->
+        <g transform="translate(115,108)">
+          <ellipse cx="0" cy="0" rx="18" ry="14" fill="#8B4513"/>
+          <circle cx="0" cy="-16" r="12" fill="#8B4513"/>
+          <ellipse cx="-8" cy="-25" rx="5" ry="9" fill="#6B3410" transform="rotate(-15,-8,-25)"/>
+          <ellipse cx="8" cy="-25" rx="5" ry="9" fill="#6B3410" transform="rotate(15,8,-25)"/>
+          <ellipse cx="0" cy="-12" rx="7" ry="5" fill="#C4A070"/>
+          <ellipse cx="1" cy="-14" rx="3" ry="2.5" fill="#1a1a1a"/>
+          <circle cx="-5" cy="-19" r="3" fill="#1a1a1a"/><circle cx="-4" cy="-20" r="0.8" fill="white"/>
+          <circle cx="5" cy="-19" r="3" fill="#1a1a1a"/><circle cx="6" cy="-20" r="0.8" fill="white"/>
+          <ellipse cx="0" cy="-8" rx="3" ry="4" fill="#FF6B9D"/>
+          <ellipse cx="-8" cy="12" rx="6" ry="4" fill="#C4A070"/>
+          <ellipse cx="8" cy="12" rx="6" ry="4" fill="#C4A070"/>
+        </g>
+ 
+        <!-- Label -->
+        <rect x="0" y="162" width="240" height="18" fill="rgba(0,0,0,0.45)"/>
+        <text x="120" y="175" text-anchor="middle" fill="white" font-size="11" font-family="Arial">🐾 Puppy Pals! 🐾</text>
+      </svg>
+    </div>
+ 
+    <!-- PHOTO 2: Screenshot of the Swag Browser -->
+    <div class="gallery-frame" title="Swag Browser Screenshot">
+      <svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+        <!-- Window chrome -->
+        <rect width="240" height="180" fill="#c0c0c0"/>
+        <!-- Title bar -->
+        <rect width="240" height="22" fill="#000080"/>
+        <text x="26" y="15" fill="white" font-size="11" font-family="Arial">🌐 Swag Browser — Surfin' the Web</text>
+        <!-- Win buttons -->
+        <rect x="205" y="3" width="14" height="14" fill="#c0c0c0" stroke="#808080" stroke-width="1"/>
+        <text x="208" y="14" fill="black" font-size="10" font-family="Arial">_</text>
+        <rect x="222" y="3" width="14" height="14" fill="#c0c0c0" stroke="#808080" stroke-width="1"/>
+        <text x="225" y="14" fill="black" font-size="10" font-family="Arial">✕</text>
+        <!-- Menubar -->
+        <rect y="22" width="240" height="14" fill="#d4d0c8"/>
+        <text x="5" y="33" fill="black" font-size="9" font-family="Arial">File  Edit  View  Favorites  Help</text>
+        <!-- Toolbar -->
+        <rect y="36" width="240" height="18" fill="#d4d0c8"/>
+        <rect x="4" y="38" width="28" height="13" fill="#d4d0c8" stroke="#808080" stroke-width="1"/>
+        <text x="6" y="48" fill="black" font-size="8" font-family="Arial">◀ Back</text>
+        <rect x="35" y="38" width="36" height="13" fill="#d4d0c8" stroke="#808080" stroke-width="1"/>
+        <text x="37" y="48" fill="black" font-size="8" font-family="Arial">Forward ▶</text>
+        <rect x="74" y="38" width="130" height="13" fill="white" stroke="#808080" stroke-width="1"/>
+        <text x="77" y="48" fill="#444" font-size="8" font-family="Arial">swag://home</text>
+        <rect x="207" y="38" width="28" height="13" fill="#d4d0c8" stroke="#808080" stroke-width="1"/>
+        <text x="210" y="48" fill="black" font-size="8" font-family="Arial">Go!</text>
+        <!-- Page content -->
+        <rect y="54" width="240" height="126" fill="white"/>
+        <!-- Swag logo -->
+        <text x="120" y="90" text-anchor="middle" fill="#FF0000" font-size="36" font-family="Arial" font-weight="bold" letter-spacing="2">S</text>
+        <text x="148" y="90" text-anchor="middle" fill="#FF8800" font-size="36" font-family="Arial" font-weight="bold">W</text>
+        <text x="168" y="90" text-anchor="middle" fill="#00AA00" font-size="36" font-family="Arial" font-weight="bold">A</text>
+        <text x="185" y="90" text-anchor="middle" fill="#0000CC" font-size="36" font-family="Arial" font-weight="bold">G</text>
+        <!-- Tagline -->
+        <text x="120" y="104" text-anchor="middle" fill="#666" font-size="7" font-family="Arial">Real Web Search — Powered by Swag™</text>
+        <!-- Search box -->
+        <rect x="40" y="110" width="130" height="14" rx="7" fill="white" stroke="#ccc" stroke-width="1"/>
+        <text x="60" y="121" fill="#aaa" font-size="7" font-family="Arial">Search the real internet...</text>
+        <rect x="172" y="110" width="30" height="14" rx="7" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
+        <text x="177" y="121" fill="#333" font-size="7" font-family="Arial">Swag!</text>
+        <!-- Quick links -->
+        <text x="55" y="140" fill="#1a0dab" font-size="7" font-family="Arial" text-decoration="underline">📰 News</text>
+        <text x="90" y="140" fill="#1a0dab" font-size="7" font-family="Arial" text-decoration="underline">☀️ Weather</text>
+        <text x="128" y="140" fill="#1a0dab" font-size="7" font-family="Arial" text-decoration="underline">⚽ Sports</text>
+        <text x="162" y="140" fill="#1a0dab" font-size="7" font-family="Arial" text-decoration="underline">💻 Tech</text>
+        <!-- Taskbar at bottom -->
+        <rect y="166" width="240" height="14" fill="#d4d0c8"/>
+        <rect x="2" y="168" width="30" height="10" fill="#d4d0c8" stroke="#fff" stroke-width="1"/>
+        <text x="4" y="176" fill="black" font-size="8" font-family="Arial">⊞ Start</text>
+        <rect x="170" y="168" width="38" height="10" fill="#d4d0c8" stroke="#999" stroke-width="1"/>
+        <text x="172" y="176" fill="black" font-size="7" font-family="Arial">🔋 12:00</text>
+        <!-- Caption -->
+        <rect x="0" y="162" width="240" height="4" fill="rgba(0,0,0,0)"/>
+      </svg>
+    </div>
+ 
+    <!-- PHOTO 3: Scarier haunted house -->
+    <div class="gallery-frame" title="Spooky...">
+      <svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+        <defs>
+          <radialGradient id="moonGlow" cx="75%" cy="20%" r="18%">
+            <stop offset="0%" stop-color="#ffffcc" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#1a0005" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffff00"/>
+            <stop offset="100%" stop-color="#ff0000"/>
+          </radialGradient>
+          <radialGradient id="windowGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ff4400"/>
+            <stop offset="100%" stop-color="#800000"/>
+          </radialGradient>
+          <filter id="redBlur">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+        </defs>
+ 
+        <!-- Deep blood-red night sky -->
+        <rect width="240" height="180" fill="#0d0005"/>
+        <rect width="240" height="100" fill="#1a0010" opacity="0.7"/>
+        <!-- Red horizon glow -->
+        <ellipse cx="120" cy="145" rx="130" ry="40" fill="#3a0000" opacity="0.5"/>
+        <rect width="240" height="180" fill="url(#moonGlow)"/>
+ 
+        <!-- Ominous red-tinted clouds -->
+        <ellipse cx="40" cy="22" rx="38" ry="14" fill="#1f0010" opacity="0.95"/>
+        <ellipse cx="80" cy="18" rx="32" ry="12" fill="#250010" opacity="0.9"/>
+        <ellipse cx="170" cy="25" rx="42" ry="15" fill="#1f0010" opacity="0.95"/>
+        <ellipse cx="210" cy="20" rx="30" ry="11" fill="#1a000a" opacity="0.85"/>
+        <!-- Red cloud underbellies -->
+        <ellipse cx="40" cy="28" rx="38" ry="8" fill="#4a0015" opacity="0.4"/>
+        <ellipse cx="175" cy="32" rx="40" ry="8" fill="#4a0015" opacity="0.35"/>
+ 
+        <!-- Bloodshot stars -->
+        <circle cx="15" cy="12" r="1" fill="#ff6666" opacity="0.7"/>
+        <circle cx="45" cy="8" r="1.2" fill="#ffaaaa" opacity="0.8"/>
+        <circle cx="80" cy="20" r="0.8" fill="#ffffff"/>
+        <circle cx="30" cy="38" r="1" fill="#ff8888" opacity="0.6"/>
+        <circle cx="130" cy="10" r="1" fill="#ffffff"/>
+        <circle cx="155" cy="25" r="0.8" fill="#ffbbbb" opacity="0.7"/>
+        <circle cx="200" cy="15" r="1.2" fill="#ffffff"/>
+        <circle cx="220" cy="30" r="0.8" fill="#ff6666" opacity="0.5"/>
+ 
+        <!-- Blood moon (full, red-tinted) -->
+        <circle cx="178" cy="32" r="22" fill="#cc2200" opacity="0.25" filter="url(#redBlur)"/>
+        <circle cx="178" cy="32" r="20" fill="#e8c090"/>
+        <circle cx="178" cy="32" r="20" fill="#cc4400" opacity="0.35"/>
+        <!-- Moon craters -->
+        <circle cx="172" cy="26" r="4" fill="#bb3300" opacity="0.3"/>
+        <circle cx="183" cy="38" r="3" fill="#bb3300" opacity="0.25"/>
+        <circle cx="168" cy="38" r="2" fill="#bb3300" opacity="0.2"/>
+ 
+        <!-- Lightning bolt (jagged) -->
+        <polyline points="68,5 62,28 70,28 60,55" stroke="#ffffaa" stroke-width="2.5" fill="none" opacity="0.9"/>
+        <polyline points="68,5 62,28 70,28 60,55" stroke="white" stroke-width="1" fill="none" opacity="0.7"/>
+        <!-- Lightning glow -->
+        <polyline points="68,5 62,28 70,28 60,55" stroke="#ffff88" stroke-width="6" fill="none" opacity="0.15"/>
+ 
+        <!-- Twisted dead trees left -->
+        <path d="M8,140 Q10,110 12,80 Q8,65 4,55" stroke="#0f0800" stroke-width="5" fill="none"/>
+        <path d="M12,90 Q2,78 -4,70" stroke="#0f0800" stroke-width="3" fill="none"/>
+        <path d="M12,100 Q22,88 26,78" stroke="#0f0800" stroke-width="3" fill="none"/>
+        <path d="M10,115 Q2,108 -2,102" stroke="#0f0800" stroke-width="2" fill="none"/>
+        <!-- Twisted dead trees right -->
+        <path d="M232,140 Q228,108 226,76 Q230,62 236,52" stroke="#0f0800" stroke-width="5" fill="none"/>
+        <path d="M226,88 Q214,76 208,68" stroke="#0f0800" stroke-width="3" fill="none"/>
+        <path d="M228,100 Q238,86 244,78" stroke="#0f0800" stroke-width="3" fill="none"/>
+        <path d="M228,114 Q238,106 244,100" stroke="#0f0800" stroke-width="2" fill="none"/>
+ 
+        <!-- Haunted house body -->
+        <rect x="60" y="80" width="120" height="90" fill="#0d0608"/>
+        <!-- House siding lines for texture -->
+        <line x1="60" y1="95" x2="180" y2="95" stroke="#180810" stroke-width="1"/>
+        <line x1="60" y1="110" x2="180" y2="110" stroke="#180810" stroke-width="1"/>
+        <line x1="60" y1="125" x2="180" y2="125" stroke="#180810" stroke-width="1"/>
+        <line x1="60" y1="140" x2="180" y2="140" stroke="#180810" stroke-width="1"/>
+        <!-- Roof -->
+        <polygon points="52,80 120,26 188,80" fill="#070304"/>
+        <polygon points="52,80 120,26 188,80" fill="none" stroke="#1a0810" stroke-width="1.5"/>
+        <!-- Roof shingles -->
+        <line x1="86" y1="53" x2="120" y2="26" stroke="#100508" stroke-width="1"/>
+        <line x1="104" y1="67" x2="120" y2="26" stroke="#100508" stroke-width="1"/>
+        <line x1="154" y1="53" x2="120" y2="26" stroke="#100508" stroke-width="1"/>
+        <line x1="136" y1="67" x2="120" y2="26" stroke="#100508" stroke-width="1"/>
+        <!-- Roof ridge spike -->
+        <polygon points="116,26 120,18 124,26" fill="#0a0305"/>
+ 
+        <!-- Tower -->
+        <rect x="98" y="38" width="44" height="52" fill="#0a0406"/>
+        <polygon points="92,38 120,6 148,38" fill="#060203"/>
+        <!-- Tower spike -->
+        <line x1="120" y1="6" x2="120" y2="0" stroke="#333" stroke-width="1.5"/>
+        <polygon points="118,6 120,0 122,6" fill="#222"/>
+ 
+        <!-- Tower window — glowing red/orange with face silhouette -->
+        <rect x="108" y="46" width="24" height="20" rx="2" fill="#cc2200"/>
+        <rect x="108" y="46" width="24" height="20" rx="2" fill="url(#windowGlow)" opacity="0.8"/>
+        <line x1="120" y1="46" x2="120" y2="66" stroke="#660000" stroke-width="1.5"/>
+        <line x1="108" y1="56" x2="132" y2="56" stroke="#660000" stroke-width="1.5"/>
+        <!-- Sinister silhouette in tower window -->
+        <ellipse cx="120" cy="50" rx="5" ry="5" fill="#000" opacity="0.9"/>
+        <rect x="116" y="55" width="8" height="8" rx="1" fill="#000" opacity="0.9"/>
+        <!-- Glowing eyes in silhouette -->
+        <circle cx="118" cy="50" r="1.2" fill="#ff4400" opacity="0.9"/>
+        <circle cx="122" cy="50" r="1.2" fill="#ff4400" opacity="0.9"/>
+ 
+        <!-- House windows — blood red glow -->
+        <rect x="68" y="96" width="30" height="24" rx="1" fill="#990000"/>
+        <rect x="68" y="96" width="30" height="24" rx="1" fill="url(#windowGlow)" opacity="0.7"/>
+        <line x1="83" y1="96" x2="83" y2="120" stroke="#550000" stroke-width="1.5"/>
+        <line x1="68" y1="108" x2="98" y2="108" stroke="#550000" stroke-width="1.5"/>
+        <!-- Shadow figure in left window -->
+        <ellipse cx="76" cy="102" rx="4" ry="4" fill="#000" opacity="0.85"/>
+        <rect x="73" y="106" width="6" height="8" rx="1" fill="#000" opacity="0.85"/>
+ 
+        <rect x="142" y="96" width="30" height="24" rx="1" fill="#990000"/>
+        <rect x="142" y="96" width="30" height="24" rx="1" fill="url(#windowGlow)" opacity="0.7"/>
+        <line x1="157" y1="96" x2="157" y2="120" stroke="#550000" stroke-width="1.5"/>
+        <line x1="142" y1="108" x2="172" y2="108" stroke="#550000" stroke-width="1.5"/>
+        <!-- Hand pressing on right window -->
+        <path d="M150,100 Q152,97 154,100 M154,100 Q156,97 158,100 M158,100 Q160,97 162,100" stroke="#000" stroke-width="1.5" fill="none" opacity="0.8"/>
+        <line x1="156" y1="100" x2="156" y2="112" stroke="#000" stroke-width="3" opacity="0.8"/>
+ 
+        <!-- Door — cracked open with red glow inside -->
+        <rect x="104" y="138" width="32" height="32" rx="2" fill="#050204"/>
+        <rect x="112" y="138" width="5" height="32" fill="#660000" opacity="0.6"/>
+        <!-- Door knocker -->
+        <circle cx="130" cy="152" r="3" fill="#333"/>
+        <circle cx="130" cy="152" r="1.5" fill="#555"/>
+        <!-- Cracked door step with blood drip -->
+        <rect x="100" y="168" width="40" height="4" fill="#0d0608"/>
+        <path d="M118,138 Q116,148 117,155 Q118,160 116,165" stroke="#880000" stroke-width="1.5" fill="none" opacity="0.8"/>
+ 
+        <!-- Ghost — more sinister, darker -->
+        <g transform="translate(34,52)" opacity="0.9">
+          <ellipse cx="0" cy="0" rx="15" ry="17" fill="rgba(180,160,200,0.6)"/>
+          <path d="M-15,15 Q-10,22 -6,15 Q-2,22 2,15 Q6,22 10,15 Q13,20 15,15 L15,0 Q0,-17 -15,0 Z" fill="rgba(180,160,200,0.6)"/>
+          <!-- Hollow dark eyes -->
+          <ellipse cx="-5" cy="-3" rx="5" ry="6" fill="rgba(0,0,0,0.95)"/>
+          <ellipse cx="5" cy="-3" rx="5" ry="6" fill="rgba(0,0,0,0.95)"/>
+          <!-- Red pupils -->
+          <circle cx="-5" cy="-3" r="2" fill="#cc0000" opacity="0.9"/>
+          <circle cx="5" cy="-3" r="2" fill="#cc0000" opacity="0.9"/>
+          <!-- Screaming mouth -->
+          <ellipse cx="0" cy="9" rx="5" ry="7" fill="rgba(0,0,0,0.9)"/>
+        </g>
+ 
+        <!-- 3 Bats flying -->
+        <g transform="translate(195,48)">
+          <ellipse cx="0" cy="0" rx="5" ry="4" fill="#0d0408"/>
+          <path d="M-5,0 Q-15,-12 -22,-5 Q-14,1 -5,0" fill="#0d0408"/>
+          <path d="M5,0 Q15,-12 22,-5 Q14,1 5,0" fill="#0d0408"/>
+          <circle cx="-2" cy="-1" r="1.5" fill="url(#eyeGlow)"/>
+          <circle cx="2" cy="-1" r="1.5" fill="url(#eyeGlow)"/>
+        </g>
+        <g transform="translate(148,15) scale(0.7)">
+          <ellipse cx="0" cy="0" rx="5" ry="4" fill="#0d0408"/>
+          <path d="M-5,0 Q-14,-11 -20,-5 Q-13,1 -5,0" fill="#0d0408"/>
+          <path d="M5,0 Q14,-11 20,-5 Q13,1 5,0" fill="#0d0408"/>
+        </g>
+        <g transform="translate(50,40) scale(0.8)">
+          <ellipse cx="0" cy="0" rx="5" ry="4" fill="#0d0408"/>
+          <path d="M-5,0 Q-14,-11 -20,-5 Q-13,1 -5,0" fill="#0d0408"/>
+          <path d="M5,0 Q14,-11 20,-5 Q13,1 5,0" fill="#0d0408"/>
+        </g>
+ 
+        <!-- Blood red fog on ground -->
+        <ellipse cx="120" cy="172" rx="115" ry="16" fill="rgba(100,0,0,0.22)"/>
+        <ellipse cx="60" cy="174" rx="75" ry="11" fill="rgba(80,0,0,0.18)"/>
+        <ellipse cx="190" cy="173" rx="65" ry="9" fill="rgba(80,0,0,0.15)"/>
+ 
+        <!-- Ground -->
+        <rect y="163" width="240" height="17" fill="#080405"/>
+        <!-- Cracks in ground -->
+        <path d="M80,165 Q85,168 90,165 Q92,170 95,167" stroke="#1a0008" stroke-width="1" fill="none"/>
+        <path d="M140,164 Q145,169 152,166" stroke="#1a0008" stroke-width="1" fill="none"/>
+ 
+        <!-- Gravestones — more menacing -->
+        <rect x="18" y="150" width="16" height="20" rx="2" fill="#111018"/>
+        <rect x="22" y="146" width="8" height="6" rx="4" fill="#111018"/>
+        <text x="26" y="162" text-anchor="middle" fill="#440022" font-size="6" font-family="Arial" font-weight="bold">RIP</text>
+        <path d="M18,168 Q26,165 34,168" stroke="#220011" stroke-width="1" fill="none"/>
+ 
+        <rect x="196" y="153" width="16" height="17" rx="2" fill="#111018"/>
+        <rect x="200" y="149" width="8" height="6" rx="4" fill="#111018"/>
+        <text x="204" y="165" text-anchor="middle" fill="#440022" font-size="6" font-family="Arial" font-weight="bold">RIP</text>
+ 
+        <!-- Skulls near gravestones -->
+        <circle cx="42" cy="162" r="5" fill="#1a1015"/>
+        <circle cx="40" cy="160" r="1.5" fill="#2a0010"/>
+        <circle cx="44" cy="160" r="1.5" fill="#2a0010"/>
+        <path d="M39,164 Q42,166 45,164" stroke="#2a0010" stroke-width="1" fill="none"/>
+ 
+        <!-- Caption -->
+        <rect x="0" y="162" width="240" height="18" fill="rgba(0,0,0,0.65)"/>
+        <text x="120" y="175" text-anchor="middle" fill="#ff4444" font-size="10" font-family="Arial" font-weight="bold">☠ BEWARE... ☠</text>
+      </svg>
+    </div>
+ 
+    <!-- PHOTO 4: Four dice — 2, 2, 3, 6 -->
+    <div class="gallery-frame" title="Four Dice: 2, 2, 3, 6">
+      <svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+        <defs>
+          <linearGradient id="tableGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#2d6a2d"/>
+            <stop offset="100%" stop-color="#1a4a1a"/>
+          </linearGradient>
+          <linearGradient id="diceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e0e0e0"/>
+          </linearGradient>
+          <filter id="diceShadow">
+            <feDropShadow dx="3" dy="4" stdDeviation="3" flood-color="rgba(0,0,0,0.4)"/>
+          </filter>
+        </defs>
+        <!-- Table surface -->
+        <rect width="240" height="180" fill="url(#tableGrad)"/>
+        <!-- Table felt texture lines -->
+        <line x1="0" y1="30" x2="240" y2="30" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="0" y1="60" x2="240" y2="60" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="0" y1="90" x2="240" y2="90" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="0" y1="120" x2="240" y2="120" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="0" y1="150" x2="240" y2="150" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <!-- Table edge -->
+        <rect x="0" y="164" width="240" height="16" fill="#5c3d11"/>
+        <rect x="0" y="163" width="240" height="3" fill="#8B5E3C"/>
+ 
+        <!-- DICE HELPER: each die is 56x56, rounded rect, white, with pip dots -->
+        <!-- DIE 1: face=2 (top-left to bottom-right diagonal) at x=18,y=30 -->
+        <g filter="url(#diceShadow)">
+          <rect x="18" y="30" width="56" height="56" rx="8" fill="url(#diceGrad)" stroke="#bbb" stroke-width="1.5"/>
+          <!-- 3D top edge highlight -->
+          <rect x="18" y="30" width="56" height="4" rx="4" fill="rgba(255,255,255,0.7)"/>
+          <rect x="18" y="30" width="4" height="56" rx="4" fill="rgba(255,255,255,0.5)"/>
+          <!-- Pip 1 top-left -->
+          <circle cx="34" cy="46" r="5.5" fill="#111"/>
+          <!-- Pip 2 bottom-right -->
+          <circle cx="58" cy="70" r="5.5" fill="#111"/>
+        </g>
+        <text x="46" y="100" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Arial" opacity="0.85">2</text>
+ 
+        <!-- DIE 2: face=2 at x=90,y=35 (slightly rotated feel) -->
+        <g filter="url(#diceShadow)" transform="rotate(-4,118,63)">
+          <rect x="90" y="35" width="56" height="56" rx="8" fill="url(#diceGrad)" stroke="#bbb" stroke-width="1.5"/>
+          <rect x="90" y="35" width="56" height="4" rx="4" fill="rgba(255,255,255,0.7)"/>
+          <rect x="90" y="35" width="4" height="56" rx="4" fill="rgba(255,255,255,0.5)"/>
+          <!-- Pip 1 top-left -->
+          <circle cx="106" cy="51" r="5.5" fill="#111"/>
+          <!-- Pip 2 bottom-right -->
+          <circle cx="130" cy="75" r="5.5" fill="#111"/>
+        </g>
+        <text x="118" y="105" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Arial" opacity="0.85">2</text>
+ 
+        <!-- DIE 3: face=3 at x=20,y=102 -->
+        <g filter="url(#diceShadow)" transform="rotate(5,48,130)">
+          <rect x="20" y="102" width="56" height="56" rx="8" fill="url(#diceGrad)" stroke="#bbb" stroke-width="1.5"/>
+          <rect x="20" y="102" width="56" height="4" rx="4" fill="rgba(255,255,255,0.7)"/>
+          <rect x="20" y="102" width="4" height="56" rx="4" fill="rgba(255,255,255,0.5)"/>
+          <!-- Pip 1 top-left -->
+          <circle cx="36" cy="118" r="5.5" fill="#111"/>
+          <!-- Pip 2 center -->
+          <circle cx="48" cy="130" r="5.5" fill="#111"/>
+          <!-- Pip 3 bottom-right -->
+          <circle cx="60" cy="142" r="5.5" fill="#111"/>
+        </g>
+        <text x="48" y="170" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Arial" opacity="0.85">3</text>
+ 
+        <!-- DIE 4: face=6 at x=160,y=88 (larger, prominent) -->
+        <g filter="url(#diceShadow)" transform="rotate(-6,188,120)">
+          <rect x="160" y="88" width="62" height="62" rx="9" fill="url(#diceGrad)" stroke="#bbb" stroke-width="1.5"/>
+          <rect x="160" y="88" width="62" height="5" rx="5" fill="rgba(255,255,255,0.7)"/>
+          <rect x="160" y="88" width="5" height="62" rx="5" fill="rgba(255,255,255,0.5)"/>
+          <!-- 6 pips: 3 columns of 2 rows, actually 2 cols of 3 -->
+          <!-- Left column: top, mid, bottom -->
+          <circle cx="177" cy="104" r="5.5" fill="#c00"/>
+          <circle cx="177" cy="120" r="5.5" fill="#c00"/>
+          <circle cx="177" cy="136" r="5.5" fill="#c00"/>
+          <!-- Right column: top, mid, bottom -->
+          <circle cx="205" cy="104" r="5.5" fill="#c00"/>
+          <circle cx="205" cy="120" r="5.5" fill="#c00"/>
+          <circle cx="205" cy="136" r="5.5" fill="#c00"/>
+        </g>
+        <!-- Label -->
+        <rect x="0" y="162" width="240" height="18" fill="rgba(0,0,0,0.45)"/>
+        <text x="120" y="175" text-anchor="middle" fill="white" font-size="10" font-family="Arial">🎲 Roll: 2 · 2 · 3 · 6 = 13 🎲</text>
+      </svg>
+    </div>
+ 
+  </div>
+  <div class="win-resize" onmousedown="startResize(event,'gallery-app')"></div>
+</div>
+ 
+<!-- HACK OVERLAY -->
+<div id="hack-overlay"></div>
+ 
+<!-- DEATH SCREEN -->
+<div id="death-screen">
+  <canvas id="scary-canvas" width="480" height="360"></canvas>
+  <div id="death-msg">⚠ SYSTEM FAILURE ⚠<br><span style="font-size:16px">ALL YOUR FILES HAVE BEEN DELETED.</span></div>
+</div>
+ 
+<script>
+// =========== WINDOW MANAGER ===========
+let zTop = 200;
+let minimized = {};
+let taskbarBtns = {};
+ 
+function openWindow(id) {
+  const w = document.getElementById(id);
+  w.classList.remove('hidden');
+  if (minimized[id]) {
+    minimized[id] = false;
+    w.style.display = '';
+  }
+  focusWindow(id);
+  if (!taskbarBtns[id]) addTaskbarBtn(id);
+  if (id === 'paint-app') initPaint();
+  if (id === 'puzzle-app') initPuzzle();
+}
+ 
+function closeWindow(id) {
+  // Stop escaped snake if closing snake window
+  if (id === 'snake-app') {
+    stopEscapedSnake();
+  }
+  
+  const w = document.getElementById(id);
+  w.classList.add('hidden');
+  w.style.display = '';
+  if (taskbarBtns[id]) {
+    taskbarBtns[id].remove();
+    delete taskbarBtns[id];
+  }
+  minimized[id] = false;
+}
+ 
+function minimizeWindow(id) {
+  const w = document.getElementById(id);
+  w.style.display = 'none';
+  minimized[id] = true;
+  if (taskbarBtns[id]) taskbarBtns[id].classList.remove('active');
+}
+ 
+function focusWindow(id) {
+  document.querySelectorAll('.window').forEach(w => w.classList.remove('focused'));
+  const w = document.getElementById(id);
+  w.classList.add('focused');
+  w.style.zIndex = ++zTop;
+  document.querySelectorAll('.task-btn').forEach(b => b.classList.remove('active'));
+  if (taskbarBtns[id]) taskbarBtns[id].classList.add('active');
+}
+ 
+function addTaskbarBtn(id) {
+  const titles = {
+    'swag-browser': '🌐 Swag', 'paint-app': '🎨 Paint',
+    'puzzle-app': '🧩 Puzzle', 'snake-app': '🐍 Snake', 'welcome': '📋 Welcome',
+    'notepad-app': '📝 Notepad'
+  };
+  const btn = document.createElement('button');
+  btn.className = 'task-btn active';
+  btn.textContent = titles[id] || id;
+  btn.onclick = () => {
+    if (minimized[id]) { openWindow(id); }
+    else { minimizeWindow(id); }
+  };
+  document.getElementById('taskbar-tasks').appendChild(btn);
+  taskbarBtns[id] = btn;
+}
+ 
+// Click desktop to close start menu
+document.getElementById('desktop').addEventListener('click', closeStart);
+ 
+// Focus windows on click
+document.querySelectorAll('.window').forEach(w => {
+  w.addEventListener('mousedown', () => focusWindow(w.id));
+});
+ 
+// =========== DRAG ===========
+let dragging = null, dragOX, dragOY;
+function startDrag(e, id) {
+  dragging = id; focusWindow(id);
+  const w = document.getElementById(id);
+  const r = w.getBoundingClientRect();
+  dragOX = e.clientX - r.left; dragOY = e.clientY - r.top;
+  e.preventDefault();
+}
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const w = document.getElementById(dragging);
+  let x = e.clientX - dragOX, y = e.clientY - dragOY;
+  x = Math.max(0, Math.min(window.innerWidth - 40, x));
+  y = Math.max(0, Math.min(window.innerHeight - 60, y));
+  w.style.left = x + 'px'; w.style.top = y + 'px';
+});
+document.addEventListener('mouseup', () => { dragging = null; });
+ 
+// =========== RESIZE ===========
+let resizing = null, resOX, resOY, resW, resH;
+function startResize(e, id) {
+  resizing = id;
+  const w = document.getElementById(id);
+  resOX = e.clientX; resOY = e.clientY;
+  resW = w.offsetWidth; resH = w.offsetHeight;
+  e.preventDefault(); e.stopPropagation();
+}
+document.addEventListener('mousemove', e => {
+  if (!resizing) return;
+  const w = document.getElementById(resizing);
+  const nw = Math.max(300, resW + e.clientX - resOX);
+  const nh = Math.max(200, resH + e.clientY - resOY);
+  w.style.width = nw + 'px'; w.style.height = nh + 'px';
+});
+document.addEventListener('mouseup', () => { resizing = null; });
+ 
+// =========== CLOCK ===========
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours();
+  const m = now.getMinutes().toString().padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  document.getElementById('clock').textContent = h + ':' + m + ' ' + ampm;
+}
+updateClock(); setInterval(updateClock, 10000);
+ 
+// =========== START MENU ===========
+function toggleStart() {
+  const m = document.getElementById('start-menu');
+  m.classList.toggle('show');
+  document.getElementById('start-btn').classList.toggle('active');
+}
+function closeStart() {
+  document.getElementById('start-menu').classList.remove('show');
+  document.getElementById('start-btn').classList.remove('active');
+}
+ 
+// =========== SWAG BROWSER (REAL SEARCH VIA CLAUDE API) ===========
+let swagHistory = [], swagHIdx = -1;
+let lastSearchQuery = '';
+let currentIframeUrl = '';
+ 
+function swagHomePage() {
+  closeIframe();
+  document.getElementById('browser-content').style.display = '';
+  document.getElementById('browser-content').innerHTML = `
+    <div class="swag-page">
+      <div class="swag-logo">SWAG</div>
+      <div class="swag-tagline">Swaggin' the web in style!</div>
+      <div class="swag-search-box">
+        <input id="swag-input" type="text" placeholder="Search the real internet..." onkeydown="if(event.key==='Enter') doSwagSearch()"/>
+        <button class="swag-btn" onclick="doSwagSearch()">Swag It!</button>
+      </div>
+      <div style="display:flex;gap:20px;font-size:12px;color:#1a0dab;font-family:Arial,sans-serif">
+        <span style="cursor:pointer;text-decoration:underline" onclick="swagQuick('latest news today')">📰 News</span>
+        <span style="cursor:pointer;text-decoration:underline" onclick="swagQuick('weather today')">☀️ Weather</span>
+        <span style="cursor:pointer;text-decoration:underline" onclick="swagQuick('sports scores today')">⚽ Sports</span>
+        <span style="cursor:pointer;text-decoration:underline" onclick="swagQuick('top movies 2025')">🎬 Movies</span>
+        <span style="cursor:pointer;text-decoration:underline" onclick="swagQuick('technology news')">💻 Tech</span>
+      </div>
+      <div id="swag-door-area" style="margin-top:28px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+        ${renderDoorHTML()}
+      </div>
+    </div>`;
+  document.getElementById('browser-url').value = 'swag://home';
+  swagPush('swag://home');
+}
+ 
+function swagQuick(q) {
+  document.getElementById('browser-url').value = `swag://search?q=${encodeURIComponent(q)}`;
+  runSearch(q);
+  swagPush(`swag://search?q=${encodeURIComponent(q)}`);
+}
+ 
+async function doSwagSearch() {
+  const input = document.getElementById('swag-input');
+  if (!input) return;
+  const q = input.value.trim();
+  if (!q) return;
+  closeIframe();
+  document.getElementById('browser-url').value = `swag://search?q=${encodeURIComponent(q)}`;
+  swagPush(`swag://search?q=${encodeURIComponent(q)}`);
+  runSearch(q);
+}
+ 
+async function runSearch(q) {
+  lastSearchQuery = q;
+  closeIframe();
+  const content = document.getElementById('browser-content');
+  content.style.display = '';
+  content.innerHTML = `
+    <div class="swag-loading">
+      <div class="swag-spinner"></div><br>
+      <span style="font-family:Arial,sans-serif;font-size:13px">Swagging the web for "<b>${escHtml(q)}</b>"...</span>
+    </div>`;
+ 
+  try {
+    const t0 = Date.now();
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: `You are Swag, a search engine. The user has searched for a query. Use web_search to find real results, then respond ONLY with a valid JSON object (no markdown, no backticks) with this exact structure:
+{
+  "total": "About X results",
+  "results": [
+    { "title": "Page title", "url": "https://...", "displayUrl": "example.com › path", "snippet": "Description of the page..." }
+  ]
+}
+Return 6-8 results. Make sure URLs are real and correct. Snippets should be informative. No other text.`,
+        messages: [{ role: 'user', content: `Search query: ${q}` }]
+      })
+    });
+ 
+    const data = await resp.json();
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+ 
+    // Extract text blocks from response
+    let jsonText = '';
+    for (const block of data.content || []) {
+      if (block.type === 'text') { jsonText += block.text; }
+    }
+ 
+    // Strip any accidental markdown fences
+    jsonText = jsonText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(jsonText);
+    renderSwagResults(q, parsed, elapsed);
+ 
+  } catch (err) {
+    document.getElementById('browser-content').innerHTML = `
+      <div class="swag-error">
+        <b>Swag Error:</b> Could not complete search.<br>
+        <small>${escHtml(String(err))}</small><br><br>
+        <button class="swag-btn" onclick="swagHome()">← Go Home</button>
+      </div>`;
+  }
+}
+ 
+function renderSwagResults(q, parsed, elapsed) {
+  const results = parsed.results || [];
+  const content = document.getElementById('browser-content');
+  content.style.display = '';
+ 
+  const searchBarHtml = `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0 12px;border-bottom:1px solid #ebebeb;margin-bottom:8px">
+      <div class="swag-logo" style="font-size:28px;line-height:1">SWAG</div>
+      <div style="display:flex;flex:1;gap:0">
+        <input id="swag-results-input" type="text" value="${escHtml(q)}" style="flex:1;height:30px;border:1px solid #ccc;border-radius:24px 0 0 24px;padding:0 14px;font-family:Arial,sans-serif;font-size:13px;outline:none" onkeydown="if(event.key==='Enter'){lastSearchQuery=this.value;swagQuick(this.value)}"/>
+        <button class="swag-btn" onclick="lastSearchQuery=document.getElementById('swag-results-input').value;swagQuick(document.getElementById('swag-results-input').value)">Swag!</button>
+      </div>
+    </div>`;
+ 
+  const resultsHtml = results.map(r => `
+    <div class="swag-result">
+      <div class="url">${escHtml(r.displayUrl || r.url)}</div>
+      <a class="swag-result-title" onclick="openSite('${escAttr(r.url)}','${escAttr(r.title)}')">${escHtml(r.title)}</a>
+      <div class="desc">${escHtml(r.snippet)}</div>
+    </div>`).join('');
+ 
+  content.innerHTML = `
+    <div style="padding:8px 12px;font-family:Arial,sans-serif">
+      ${searchBarHtml}
+      <div class="swag-results-header">${escHtml(parsed.total || 'Results')} (${elapsed}s)</div>
+      <div class="swag-results">${resultsHtml}</div>
+      <div style="padding:16px 0;font-size:11px;color:#999;font-family:Arial,sans-serif;text-align:center">— Swag Search —</div>
+    </div>`;
+}
+ 
+function openSite(url, title) {
+  const iframe = document.getElementById('browser-iframe');
+  const bar = document.getElementById('swag-iframe-bar');
+  const content = document.getElementById('browser-content');
+  currentIframeUrl = url;
+  document.getElementById('browser-url').value = url;
+  document.getElementById('iframe-url-display').textContent = url;
+  content.style.display = 'none';
+  iframe.style.display = 'block';
+  iframe.src = url;
+  bar.classList.add('visible');
+  swagPush(url);
+}
+ 
+function closeIframe() {
+  const iframe = document.getElementById('browser-iframe');
+  const bar = document.getElementById('swag-iframe-bar');
+  const content = document.getElementById('browser-content');
+  iframe.style.display = 'none';
+  iframe.src = 'about:blank';
+  bar.classList.remove('visible');
+  content.style.display = '';
+  currentIframeUrl = '';
+}
+ 
+function openInNewTab() {
+  if (currentIframeUrl) window.open(currentIframeUrl, '_blank');
+}
+ 
+function swagNavigate() {
+  const val = document.getElementById('browser-url').value.trim();
+  if (!val) return;
+  if (val.startsWith('swag://home') || val === '') { swagHome(); return; }
+  if (val.startsWith('swag://search?q=')) {
+    const q = decodeURIComponent(val.replace('swag://search?q=',''));
+    runSearch(q); return;
+  }
+  if (val.startsWith('http://') || val.startsWith('https://')) {
+    openSite(val, val); return;
+  }
+  // Treat as search query
+  swagQuick(val);
+}
+ 
+function swagPush(url) {
+  swagHistory = swagHistory.slice(0, swagHIdx + 1);
+  swagHistory.push(url);
+  swagHIdx = swagHistory.length - 1;
+}
+ 
+function swagHome() { swagHomePage(); }
+ 
+function swagBack() {
+  if (swagHIdx > 0) {
+    swagHIdx--;
+    const url = swagHistory[swagHIdx];
+    document.getElementById('browser-url').value = url;
+    if (url === 'swag://home') { swagHomePage(); return; }
+    if (url.startsWith('swag://search?q=')) {
+      const q = decodeURIComponent(url.replace('swag://search?q=',''));
+      runSearch(q); return;
+    }
+    if (url.startsWith('http')) { openSite(url, url); }
+  }
+}
+ 
+function swagForward() {
+  if (swagHIdx < swagHistory.length - 1) {
+    swagHIdx++;
+    const url = swagHistory[swagHIdx];
+    document.getElementById('browser-url').value = url;
+    if (url === 'swag://home') { swagHomePage(); return; }
+    if (url.startsWith('swag://search?q=')) {
+      const q = decodeURIComponent(url.replace('swag://search?q=',''));
+      runSearch(q); return;
+    }
+    if (url.startsWith('http')) { openSite(url, url); }
+  }
+}
+ 
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+ 
+// =========== PAINT ===========
+let paintCtx, painting = false, paintTool = 'pencil', paintColor = '#000000', paintSize = 3;
+let paintStartX, paintStartY, paintSnap;
+let paintInitDone = false;
+ 
+const COLORS = ['#000000','#808080','#800000','#808000','#008000','#008080','#000080','#800080',
+  '#ffffff','#c0c0c0','#ff0000','#ffff00','#00ff00','#00ffff','#0000ff','#ff00ff',
+  '#ff8040','#804000','#80ff00','#004040','#0080ff','#8000ff','#ff0080','#ff8080'];
+ 
+function initPaint() {
+  if (paintInitDone) return; paintInitDone = true;
+  const canvas = document.getElementById('paint-canvas');
+  paintCtx = canvas.getContext('2d');
+  paintCtx.fillStyle = '#ffffff'; paintCtx.fillRect(0,0,canvas.width,canvas.height);
+  paintCtx.lineJoin = 'round'; paintCtx.lineCap = 'round';
+ 
+  const cp = document.getElementById('paint-colors');
+  COLORS.forEach((c,i) => {
+    const s = document.createElement('div');
+    s.className = 'color-swatch' + (i===0?' active':'');
+    s.style.background = c;
+    s.onclick = () => { document.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('active')); s.classList.add('active'); setColor(c); };
+    cp.appendChild(s);
+  });
+ 
+  canvas.addEventListener('mousedown', paintDown);
+  canvas.addEventListener('mousemove', paintMove);
+  canvas.addEventListener('mouseup', paintUp);
+  canvas.addEventListener('mouseleave', paintUp);
+  canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    document.getElementById('paint-pos').textContent = `${Math.round(e.clientX-r.left)}, ${Math.round(e.clientY-r.top)}`;
+  });
+}
+ 
+function setTool(t) {
+  paintTool = t;
+  document.querySelectorAll('.paint-tool').forEach(el => el.classList.remove('active'));
+  document.getElementById('tool-'+t)?.classList.add('active');
+  document.getElementById('paint-tool-name').textContent = 'Tool: ' + t.charAt(0).toUpperCase()+t.slice(1);
+}
+function setColor(c) { paintColor = c; document.getElementById('paint-fg').style.background = c; }
+function setBrushSize(s) { paintSize = s; }
+function clearCanvas() {
+  const c = document.getElementById('paint-canvas');
+  paintCtx.fillStyle = '#ffffff'; paintCtx.fillRect(0,0,c.width,c.height);
+}
+ 
+function getPos(e) {
+  const r = document.getElementById('paint-canvas').getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+ 
+function paintDown(e) {
+  painting = true;
+  [paintStartX, paintStartY] = getPos(e);
+  if (paintTool === 'pencil' || paintTool === 'brush' || paintTool === 'eraser') {
+    paintCtx.beginPath(); paintCtx.moveTo(paintStartX, paintStartY);
+  }
+  if (paintTool === 'fill') { floodFill(Math.round(paintStartX), Math.round(paintStartY), paintColor); painting = false; }
+  if (paintTool === 'line' || paintTool === 'rect' || paintTool === 'circle') {
+    paintSnap = paintCtx.getImageData(0,0,document.getElementById('paint-canvas').width,document.getElementById('paint-canvas').height);
+  }
+}
+function paintMove(e) {
+  if (!painting) return;
+  const [x, y] = getPos(e);
+  paintCtx.lineWidth = paintSize;
+  if (paintTool === 'pencil') { paintCtx.strokeStyle = paintColor; paintCtx.lineTo(x,y); paintCtx.stroke(); }
+  else if (paintTool === 'brush') { paintCtx.strokeStyle = paintColor; paintCtx.lineWidth = paintSize*2; paintCtx.lineTo(x,y); paintCtx.stroke(); }
+  else if (paintTool === 'eraser') { paintCtx.strokeStyle = '#ffffff'; paintCtx.lineWidth = paintSize*3; paintCtx.lineTo(x,y); paintCtx.stroke(); }
+  else if (paintTool === 'line') {
+    paintCtx.putImageData(paintSnap,0,0);
+    paintCtx.strokeStyle = paintColor; paintCtx.beginPath(); paintCtx.moveTo(paintStartX,paintStartY); paintCtx.lineTo(x,y); paintCtx.stroke();
+  } else if (paintTool === 'rect') {
+    paintCtx.putImageData(paintSnap,0,0);
+    paintCtx.strokeStyle = paintColor; paintCtx.strokeRect(paintStartX,paintStartY,x-paintStartX,y-paintStartY);
+  } else if (paintTool === 'circle') {
+    paintCtx.putImageData(paintSnap,0,0);
+    paintCtx.strokeStyle = paintColor; paintCtx.beginPath();
+    paintCtx.ellipse((paintStartX+x)/2,(paintStartY+y)/2,Math.abs(x-paintStartX)/2,Math.abs(y-paintStartY)/2,0,0,Math.PI*2); paintCtx.stroke();
+  }
+}
+function paintUp() { painting = false; if (paintCtx) { paintCtx.beginPath(); } }
+ 
+function floodFill(sx, sy, fillColor) {
+  const canvas = document.getElementById('paint-canvas');
+  const img = paintCtx.getImageData(0,0,canvas.width,canvas.height);
+  const d = img.data;
+  const w = canvas.width;
+  const idx = (x,y) => (y*w+x)*4;
+  const ti = idx(sx,sy);
+  const tr = d[ti], tg = d[ti+1], tb = d[ti+2];
+  const fc = hexToRgb(fillColor);
+  if (!fc || (tr===fc.r&&tg===fc.g&&tb===fc.b)) return;
+  const stack = [[sx,sy]];
+  while (stack.length) {
+    const [x,y] = stack.pop();
+    if (x<0||x>=w||y<0||y>=canvas.height) continue;
+    const i = idx(x,y);
+    if (d[i]!==tr||d[i+1]!==tg||d[i+2]!==tb) continue;
+    d[i]=fc.r; d[i+1]=fc.g; d[i+2]=fc.b; d[i+3]=255;
+    stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
+  }
+  paintCtx.putImageData(img,0,0);
+}
+ 
+function hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? {r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)} : null;
+}
+ 
+// =========== SLIDE PUZZLE ===========
+let puzzleTiles = [], puzzleSize = 3, puzzleMoves = 0, puzzleBest = Infinity, puzzleInitDone = false;
+ 
+function initPuzzle() {
+  if (puzzleInitDone) { return; } puzzleInitDone = true;
+  const grid = document.getElementById('puzzle-grid');
+  grid.style.gridTemplateColumns = `repeat(${puzzleSize}, 80px)`;
+  shufflePuzzle();
+}
+ 
+function isSolvable(arr) {
+  let inv = 0;
+  const flat = arr.filter(x=>x!==0);
+  for (let i=0;i<flat.length;i++) for (let j=i+1;j<flat.length;j++) if(flat[i]>flat[j]) inv++;
+  return inv % 2 === 0;
+}
+ 
+function shufflePuzzle() {
+  puzzleMoves = 0;
+  document.getElementById('puzzle-moves').textContent = 0;
+  document.getElementById('puzzle-status').textContent = '';
+  let arr;
+  do { arr = [...Array(puzzleSize*puzzleSize).keys()].sort(()=>Math.random()-.5); } while (!isSolvable(arr) || isSolved(arr));
+  puzzleTiles = arr;
+  renderPuzzle();
+}
+ 
+function renderPuzzle() {
+  const grid = document.getElementById('puzzle-grid');
+  grid.innerHTML = '';
+  puzzleTiles.forEach((v,i) => {
+    const t = document.createElement('div');
+    t.className = 'puzzle-tile' + (v===0?' empty':'');
+    t.textContent = v===0?'':v;
+    if (v!==0) t.onclick = () => moveTile(i);
+    grid.appendChild(t);
+  });
+}
+ 
+function moveTile(i) {
+  const emptyIdx = puzzleTiles.indexOf(0);
+  const valid = [i-1,i+1,i-puzzleSize,i+puzzleSize];
+  const rowI = Math.floor(i/puzzleSize), rowE = Math.floor(emptyIdx/puzzleSize);
+  if ((i===emptyIdx-1||i===emptyIdx+1) && rowI!==rowE) return;
+  if (!valid.includes(emptyIdx) || (Math.abs(i-emptyIdx)===1 && rowI!==rowE)) return;
+  if (Math.abs(i-emptyIdx)!==1 && Math.abs(i-emptyIdx)!==puzzleSize) return;
+  if (Math.abs(i-emptyIdx)===1 && rowI!==rowE) return;
+  [puzzleTiles[i], puzzleTiles[emptyIdx]] = [puzzleTiles[emptyIdx], puzzleTiles[i]];
+  puzzleMoves++;
+  document.getElementById('puzzle-moves').textContent = puzzleMoves;
+  renderPuzzle();
+  if (isSolved(puzzleTiles)) {
+    if (puzzleMoves < puzzleBest) { puzzleBest = puzzleMoves; document.getElementById('puzzle-best').textContent = puzzleBest; }
+    document.getElementById('puzzle-status').textContent = `🎉 Solved in ${puzzleMoves} moves!`;
+    
+    // Battery bonus for solving puzzle (once per session)
+    if (!puzzleBatteryBonusUsed) {
+      puzzleBatteryBonusUsed = true;
+      batteryLevel = Math.min(100, batteryLevel + 10);
+      updateBatteryUI();
+      playBeep(880, 0.15, 0.15);
+      setTimeout(() => playBeep(1100, 0.15, 0.15), 150);
+      setTimeout(() => playBeep(1320, 0.2, 0.15), 300);
+      // Visual feedback
+      setTimeout(() => {
+        document.getElementById('puzzle-status').textContent = `🎉 Solved + 10% Battery Bonus!`;
+      }, 800);
+    }
+  }
+}
+ 
+function isSolved(arr) { return arr.every((v,i) => v===(i===arr.length-1?0:i+1)); }
+ 
+function solvePuzzle() {
+  puzzleTiles = [...Array(puzzleSize*puzzleSize).keys()].map((v,i,a)=>i===a.length-1?0:v+1);
+  puzzleMoves = 0; document.getElementById('puzzle-moves').textContent = 0;
+  document.getElementById('puzzle-status').textContent = '✅ Here is the solution!';
+  renderPuzzle();
+}
+ 
+// =========== SNAKE GAME ===========
+const CELL = 20, COLS = 18, ROWS = 15;
+let snakeArr, dir, nextDir, food, snakeTimer, snakeRunning = false, snakeScore = 0, snakeHi = 0, snakeLevel = 1;
+let bossSnakeMode = false;
+ 
+function startSnake() {
+  // Stop any escaped snake first
+  stopEscapedSnake();
+  
+  const canvas = document.getElementById('snake-canvas');
+  const ctx = canvas.getContext('2d');
+  snakeArr = [{x:9,y:7},{x:8,y:7},{x:7,y:7}];
+  dir = {x:1,y:0}; nextDir = {x:1,y:0};
+  snakeScore = 0; snakeLevel = 1;
+  document.getElementById('snake-score').textContent = 0;
+  document.getElementById('snake-level').textContent = 1;
+  document.getElementById('snake-msg').style.display = 'none';
+  document.getElementById('snake-start-btn').style.display = 'none';
+  placeFood();
+  if (snakeTimer) clearInterval(snakeTimer);
+  snakeRunning = true;
+  const speed = bossSnakeMode ? 72 : 200 - (snakeLevel-1)*15;
+  snakeTimer = setInterval(() => snakeTick(ctx,canvas), speed);
+}
+ 
+function startBossSnake() {
+  bossSnakeMode = true;
+  openWindow('snake-app');
+  // Style it red/evil
+  document.getElementById('snake-body').style.background = '#1a0000';
+  document.getElementById('snake-hud').style.color = '#ff2200';
+  const btn = document.getElementById('snake-start-btn');
+  btn.textContent = '💀 BOSS LEVEL — START';
+  btn.style.background = '#330000';
+  btn.style.color = '#ff2200';
+  btn.style.border = '1px solid #ff2200';
+  // Change title bar
+  document.querySelector('#snake-app .win-title').textContent = '🔥 BOSS SNAKE — SURVIVE IF YOU CAN!';
+  // Show warning message
+  document.getElementById('snake-msg').style.display = 'block';
+  document.getElementById('snake-msg').style.color = '#ff2200';
+  document.getElementById('snake-msg').textContent = '⚠ BOSS LEVEL ⚠  Score 500 to escape!';
+}
+ 
+function placeFood() {
+  do { food = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)}; }
+  while (snakeArr.some(s=>s.x===food.x&&s.y===food.y));
+}
+ 
+function snakeTick(ctx,canvas) {
+  dir = nextDir;
+  const head = {x: snakeArr[0].x+dir.x, y: snakeArr[0].y+dir.y};
+  if (head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snakeArr.some(s=>s.x===head.x&&s.y===head.y)) {
+    clearInterval(snakeTimer); snakeRunning = false;
+    if (bossSnakeMode) {
+      handleBossLoss();
+    } else {
+      document.getElementById('snake-msg').textContent = `💀 Game Over! Score: ${snakeScore}`;
+      document.getElementById('snake-msg').style.display = 'block';
+      document.getElementById('snake-start-btn').textContent = '▶ PLAY AGAIN';
+      document.getElementById('snake-start-btn').style.display = '';
+    }
+    return;
+  }
+  snakeArr.unshift(head);
+  if (head.x===food.x&&head.y===food.y) {
+    snakeScore += 10;
+    if (snakeScore > snakeHi) { snakeHi = snakeScore; document.getElementById('snake-hi').textContent = snakeHi; }
+    document.getElementById('snake-score').textContent = snakeScore;
+    
+    // WALL BREAK at 250 points!
+    if (!bossSnakeMode && snakeScore === 250) {
+      triggerWallBreak();
+      return; // Don't place food normally, snake is now free
+    }
+    
+    if (!bossSnakeMode && snakeScore % 50 === 0) {
+      snakeLevel++;
+      document.getElementById('snake-level').textContent = snakeLevel;
+      clearInterval(snakeTimer);
+      snakeTimer = setInterval(() => snakeTick(ctx,canvas), Math.max(60,200-(snakeLevel-1)*15));
+    }
+    // Boss mode: win condition
+    if (bossSnakeMode && snakeScore >= 500) {
+      clearInterval(snakeTimer); snakeRunning = false;
+      document.getElementById('snake-msg').textContent = '🏆 YOU BEAT THE BOSS! 🏆';
+      document.getElementById('snake-msg').style.display = 'block';
+      document.getElementById('snake-start-btn').textContent = '▶ PLAY AGAIN';
+      document.getElementById('snake-start-btn').style.display = '';
+      bossSnakeMode = false;
+      resetSnakeStyle();
+      return;
+    }
+    placeFood();
+  } else { snakeArr.pop(); }
+  drawSnake(ctx, canvas);
+}
+ 
+function handleBossLoss() {
+  const score = snakeScore;
+  document.getElementById('snake-msg').style.color = '#ff0000';
+  document.getElementById('snake-msg').textContent = `💀 BOSS DEFEATED YOU! Score: ${score}`;
+  document.getElementById('snake-msg').style.display = 'block';
+  document.getElementById('snake-start-btn').style.display = 'none';
+  bossSnakeMode = false;
+  resetSnakeStyle();
+ 
+  setTimeout(() => {
+    doorGone = true;      // door disappears forever
+    doorUnlocked = false;
+    keyVisible = false;
+    swagHomePage();       // reboot browser (door area now renders empty)
+    focusWindow('swag-browser');
+    if (score < 500) {
+      applyBossPenalty();
+    }
+  }, 2200);
+}
+ 
+function resetSnakeStyle() {
+  document.getElementById('snake-body').style.background = '#000';
+  document.getElementById('snake-hud').style.color = '#0f0';
+  const btn = document.getElementById('snake-start-btn');
+  btn.textContent = '▶ START';
+  btn.style.background = '#003300';
+  btn.style.color = '#0f0';
+  btn.style.border = '1px solid #0f0';
+  document.querySelector('#snake-app .win-title').textContent = 'Snake!';
+}
+ 
+function applyBossPenalty() {
+  // Speed up battery drain to 1% per 0.8s
+  if (window._penaltyBatteryTimer) clearInterval(window._penaltyBatteryTimer);
+  window._penaltyBatteryTimer = setInterval(() => {
+    if (hackPhase) return;
+    batteryLevel = Math.max(0, batteryLevel - 1);
+    updateBatteryUI();
+    playBeep(260, 0.08, 0.12);
+    if (batteryLevel === 0) {
+      clearInterval(window._penaltyBatteryTimer);
+      startHackSequence();
+    }
+  }, 800);
+ 
+  // Replace all gallery photos with "3/5" SVGs
+  const frames = document.querySelectorAll('.gallery-frame');
+  frames.forEach((frame, i) => {
+    frame.innerHTML = makeThreeFifthsSVG(i);
+  });
+}
+ 
+function makeThreeFifthsSVG(idx) {
+  const svgs = [
+    // 1 — Creepy clown face, 3/5 scary
+    `<svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <rect width="240" height="180" fill="#0a0010"/>
+      <radialGradient id="cg" cx="50%" cy="50%" r="55%">
+        <stop offset="0%" stop-color="#220022"/>
+        <stop offset="100%" stop-color="#000"/>
+      </radialGradient>
+      <rect width="240" height="180" fill="url(#cg)"/>
+      <!-- Face -->
+      <ellipse cx="120" cy="95" rx="72" ry="78" fill="#f0e0c0"/>
+      <ellipse cx="120" cy="95" rx="72" ry="78" fill="#cc0044" opacity="0.08"/>
+      <!-- Wig -->
+      <ellipse cx="120" cy="30" rx="80" ry="28" fill="#cc0000"/>
+      <ellipse cx="55" cy="50" rx="22" ry="40" fill="#cc0000"/>
+      <ellipse cx="185" cy="50" rx="22" ry="40" fill="#cc0000"/>
+      <!-- Eyes — wide and unsettling -->
+      <circle cx="90" cy="85" r="20" fill="white"/>
+      <circle cx="150" cy="85" r="20" fill="white"/>
+      <circle cx="90" cy="88" r="12" fill="#000"/>
+      <circle cx="150" cy="88" r="12" fill="#000"/>
+      <circle cx="85" cy="83" r="4" fill="#cc0000"/>
+      <circle cx="145" cy="83" r="4" fill="#cc0000"/>
+      <circle cx="94" cy="82" r="3" fill="white"/>
+      <circle cx="154" cy="82" r="3" fill="white"/>
+      <!-- Painted smile — wide, goes past natural mouth -->
+      <path d="M65,125 Q120,165 175,125" fill="#cc0000" stroke="#880000" stroke-width="2"/>
+      <path d="M65,125 Q120,145 175,125" fill="#f0e0c0"/>
+      <!-- Teeth -->
+      <rect x="88" y="130" width="10" height="14" rx="2" fill="white" stroke="#ccc" stroke-width="0.5"/>
+      <rect x="101" y="128" width="10" height="16" rx="2" fill="white" stroke="#ccc" stroke-width="0.5"/>
+      <rect x="114" y="128" width="10" height="16" rx="2" fill="white" stroke="#ccc" stroke-width="0.5"/>
+      <rect x="127" y="128" width="10" height="16" rx="2" fill="white" stroke="#ccc" stroke-width="0.5"/>
+      <rect x="140" y="130" width="10" height="14" rx="2" fill="white" stroke="#ccc" stroke-width="0.5"/>
+      <!-- Rosy cheeks -->
+      <ellipse cx="72" cy="108" rx="16" ry="10" fill="#ff6699" opacity="0.55"/>
+      <ellipse cx="168" cy="108" rx="16" ry="10" fill="#ff6699" opacity="0.55"/>
+      <!-- Red nose -->
+      <circle cx="120" cy="108" r="12" fill="#ff1a1a"/>
+      <circle cx="116" cy="105" r="3" fill="rgba(255,255,255,0.4)"/>
+      <!-- Dark teardrop under left eye -->
+      <path d="M82,106 Q80,114 82,120 Q84,114 82,106" fill="#222"/>
+      <!-- Caption -->
+      <rect x="0" y="163" width="240" height="17" fill="rgba(0,0,0,0.7)"/>
+      <text x="120" y="175" text-anchor="middle" fill="#ff4488" font-size="11" font-family="Arial">😈 He's always watching...</text>
+    </svg>`,
+ 
+    // 2 — Shadowy figure at the end of a hallway
+    `<svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <defs>
+        <radialGradient id="hg" cx="50%" cy="55%" r="38%">
+          <stop offset="0%" stop-color="#443322"/>
+          <stop offset="100%" stop-color="#080508"/>
+        </radialGradient>
+      </defs>
+      <rect width="240" height="180" fill="url(#hg)"/>
+      <!-- Hallway walls perspective -->
+      <polygon points="0,0 80,55 80,135 0,180" fill="#1a1010"/>
+      <polygon points="240,0 160,55 160,135 240,180" fill="#1a1010"/>
+      <!-- Floor -->
+      <polygon points="80,135 160,135 240,180 0,180" fill="#111008"/>
+      <!-- Floor boards -->
+      <line x1="80" y1="135" x2="0" y2="180" stroke="#191208" stroke-width="1"/>
+      <line x1="100" y1="135" x2="40" y2="180" stroke="#191208" stroke-width="1"/>
+      <line x1="120" y1="135" x2="80" y2="180" stroke="#191208" stroke-width="1"/>
+      <line x1="140" y1="135" x2="160" y2="180" stroke="#191208" stroke-width="1"/>
+      <line x1="160" y1="135" x2="240" y2="180" stroke="#191208" stroke-width="1"/>
+      <!-- Ceiling -->
+      <polygon points="80,55 160,55 240,0 0,0" fill="#130d0d"/>
+      <!-- Ceiling lines -->
+      <line x1="80" y1="55" x2="0" y2="0" stroke="#1c1010" stroke-width="1"/>
+      <line x1="120" y1="55" x2="120" y2="0" stroke="#1c1010" stroke-width="1"/>
+      <line x1="160" y1="55" x2="240" y2="0" stroke="#1c1010" stroke-width="1"/>
+      <!-- Wall frames / doors along sides -->
+      <rect x="82" y="58" width="20" height="40" rx="1" fill="#1e1212" stroke="#2a1818" stroke-width="1"/>
+      <rect x="138" y="58" width="20" height="40" rx="1" fill="#1e1212" stroke="#2a1818" stroke-width="1"/>
+      <!-- Flickering wall light left -->
+      <rect x="84" y="62" width="8" height="4" rx="1" fill="#886644" opacity="0.6"/>
+      <!-- End of hallway — dim light glow -->
+      <ellipse cx="120" cy="95" rx="30" ry="40" fill="#332211" opacity="0.4"/>
+      <ellipse cx="120" cy="95" rx="16" ry="22" fill="#443322" opacity="0.5"/>
+      <!-- THE FIGURE — tall dark silhouette at end of hall -->
+      <ellipse cx="120" cy="78" rx="9" ry="10" fill="#0a0608"/>
+      <!-- body -->
+      <polygon points="108,88 132,88 136,130 104,130" fill="#0a0608"/>
+      <!-- arms hanging unnaturally long -->
+      <line x1="108" y1="95" x2="96" y2="122" stroke="#0a0608" stroke-width="5" stroke-linecap="round"/>
+      <line x1="132" y1="95" x2="144" y2="122" stroke="#0a0608" stroke-width="5" stroke-linecap="round"/>
+      <!-- Glowing white eyes -->
+      <ellipse cx="115" cy="77" rx="3" ry="3.5" fill="white" opacity="0.9"/>
+      <ellipse cx="125" cy="77" rx="3" ry="3.5" fill="white" opacity="0.9"/>
+      <ellipse cx="115" cy="77" rx="1.5" ry="2" fill="#cc0000"/>
+      <ellipse cx="125" cy="77" rx="1.5" ry="2" fill="#cc0000"/>
+      <!-- Caption -->
+      <rect x="0" y="163" width="240" height="17" fill="rgba(0,0,0,0.75)"/>
+      <text x="120" y="175" text-anchor="middle" fill="#aaaacc" font-size="11" font-family="Arial">👁 It was there when the lights went out.</text>
+    </svg>`,
+ 
+    // 3 — Jack-o-lantern in the dark with fog
+    `<svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <defs>
+        <radialGradient id="jg" cx="50%" cy="60%" r="50%">
+          <stop offset="0%" stop-color="#331400"/>
+          <stop offset="100%" stop-color="#050200"/>
+        </radialGradient>
+        <radialGradient id="jglow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff6600" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="#ff3300" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="240" height="180" fill="url(#jg)"/>
+      <!-- Stars -->
+      <circle cx="20" cy="15" r="1" fill="white" opacity="0.5"/>
+      <circle cx="55" cy="8" r="0.8" fill="white" opacity="0.4"/>
+      <circle cx="180" cy="12" r="1.2" fill="white" opacity="0.6"/>
+      <circle cx="210" cy="22" r="0.8" fill="white" opacity="0.5"/>
+      <circle cx="30" cy="40" r="0.8" fill="white" opacity="0.3"/>
+      <!-- Glow behind pumpkin -->
+      <ellipse cx="120" cy="100" rx="70" ry="60" fill="url(#jglow)"/>
+      <!-- Pumpkin body -->
+      <ellipse cx="120" cy="105" rx="52" ry="48" fill="#c94800"/>
+      <ellipse cx="98" cy="105" rx="28" ry="46" fill="#b84000"/>
+      <ellipse cx="142" cy="105" rx="28" ry="46" fill="#b84000"/>
+      <ellipse cx="120" cy="105" rx="18" ry="48" fill="#d85200"/>
+      <!-- Pumpkin ridges -->
+      <line x1="120" y1="58" x2="120" y2="152" stroke="#a83800" stroke-width="1.5" opacity="0.5"/>
+      <line x1="98" y1="60" x2="94" y2="150" stroke="#a83800" stroke-width="1" opacity="0.4"/>
+      <line x1="142" y1="60" x2="146" y2="150" stroke="#a83800" stroke-width="1" opacity="0.4"/>
+      <!-- Stem -->
+      <rect x="115" y="50" width="10" height="14" rx="3" fill="#2d5a00"/>
+      <path d="M122,52 Q132,44 128,38" stroke="#2d5a00" stroke-width="2.5" fill="none"/>
+      <!-- Carved triangle eyes — glowing -->
+      <polygon points="95,90 83,108 107,108" fill="#ff8800" opacity="0.95"/>
+      <polygon points="145,90 133,108 157,108" fill="#ff8800" opacity="0.95"/>
+      <!-- Jagged mouth -->
+      <path d="M80,122 L88,118 L96,126 L104,118 L112,126 L120,118 L128,126 L136,118 L144,126 L152,118 L160,122 L160,138 Q120,148 80,138 Z" fill="#ff8800" opacity="0.9"/>
+      <!-- Teeth -->
+      <rect x="96" y="126" width="10" height="10" fill="#c94800"/>
+      <rect x="117" y="124" width="6" height="12" fill="#c94800"/>
+      <rect x="134" y="126" width="10" height="10" fill="#c94800"/>
+      <!-- Inner glow -->
+      <ellipse cx="120" cy="112" rx="30" ry="22" fill="#ff6600" opacity="0.2"/>
+      <!-- Ground fog -->
+      <ellipse cx="120" cy="165" rx="115" ry="18" fill="rgba(120,80,40,0.18)"/>
+      <ellipse cx="60" cy="168" rx="70" ry="12" fill="rgba(100,60,20,0.14)"/>
+      <ellipse cx="190" cy="167" rx="60" ry="10" fill="rgba(100,60,20,0.12)"/>
+      <!-- Caption -->
+      <rect x="0" y="163" width="240" height="17" fill="rgba(0,0,0,0.7)"/>
+      <text x="120" y="175" text-anchor="middle" fill="#ff8833" font-size="11" font-family="Arial">🎃 Something grinning in the dark...</text>
+    </svg>`,
+ 
+    // 4 — Ghostly face pressed against glass/window
+    `<svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <defs>
+        <radialGradient id="gg" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#c8d8e8" stop-opacity="0.7"/>
+          <stop offset="100%" stop-color="#aabbc8" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <!-- Dark room interior -->
+      <rect width="240" height="180" fill="#080c10"/>
+      <!-- Window frame -->
+      <rect x="30" y="20" width="180" height="140" rx="4" fill="#0e1a24" stroke="#1e3040" stroke-width="4"/>
+      <!-- Window panes (2x2) -->
+      <line x1="120" y1="20" x2="120" y2="160" stroke="#1e3040" stroke-width="5"/>
+      <line x1="30" y1="90" x2="210" y2="90" stroke="#1e3040" stroke-width="5"/>
+      <!-- Night sky outside -->
+      <rect x="33" y="23" width="84" height="64" fill="#05080f"/>
+      <rect x="123" y="23" width="84" height="64" fill="#05080f"/>
+      <rect x="33" y="93" width="84" height="64" fill="#05080f"/>
+      <rect x="123" y="93" width="84" height="64" fill="#05080f"/>
+      <!-- Stars in panes -->
+      <circle cx="60" cy="40" r="0.8" fill="white" opacity="0.6"/>
+      <circle cx="90" cy="55" r="1" fill="white" opacity="0.5"/>
+      <circle cx="150" cy="35" r="0.8" fill="white" opacity="0.7"/>
+      <circle cx="180" cy="60" r="0.8" fill="white" opacity="0.4"/>
+      <circle cx="50" cy="120" r="0.8" fill="white" opacity="0.5"/>
+      <circle cx="170" cy="130" r="1" fill="white" opacity="0.4"/>
+      <!-- GHOSTLY FACE pressed to glass — in top-left pane -->
+      <!-- Condensation / breath fog -->
+      <ellipse cx="75" cy="56" rx="38" ry="30" fill="url(#gg)"/>
+      <!-- Face shape — translucent, distorted by glass -->
+      <ellipse cx="75" cy="56" rx="30" ry="28" fill="rgba(200,220,240,0.45)"/>
+      <!-- Pressed-flat nose smear -->
+      <ellipse cx="75" cy="58" rx="8" ry="5" fill="rgba(180,205,225,0.5)"/>
+      <!-- Hollow dark eyes — wide -->
+      <ellipse cx="62" cy="50" rx="8" ry="9" fill="rgba(5,5,15,0.92)"/>
+      <ellipse cx="88" cy="50" rx="8" ry="9" fill="rgba(5,5,15,0.92)"/>
+      <!-- Faint iris glow -->
+      <ellipse cx="62" cy="51" rx="3" ry="3.5" fill="rgba(100,140,180,0.5)"/>
+      <ellipse cx="88" cy="51" rx="3" ry="3.5" fill="rgba(100,140,180,0.5)"/>
+      <!-- Open screaming mouth -->
+      <ellipse cx="75" cy="68" rx="11" ry="10" fill="rgba(5,5,15,0.9)"/>
+      <!-- Handprints smeared on glass near face -->
+      <ellipse cx="38" cy="44" rx="6" ry="8" fill="rgba(200,220,240,0.2)" transform="rotate(-15,38,44)"/>
+      <line x1="32" y1="37" x2="30" y2="28" stroke="rgba(200,220,240,0.18)" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="36" y1="36" x2="34" y2="27" stroke="rgba(200,220,240,0.18)" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="40" y1="36" x2="40" y2="27" stroke="rgba(200,220,240,0.18)" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="44" y1="37" x2="46" y2="28" stroke="rgba(200,220,240,0.18)" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Condensation drip -->
+      <path d="M95,70 Q96,78 95,85" stroke="rgba(200,220,240,0.3)" stroke-width="1.5" fill="none"/>
+      <!-- Caption -->
+      <rect x="0" y="163" width="240" height="17" fill="rgba(0,0,0,0.8)"/>
+      <text x="120" y="175" text-anchor="middle" fill="#aaccdd" font-size="11" font-family="Arial">🪟 Something outside pressed against the glass.</text>
+    </svg>`
+  ];
+  return svgs[idx % svgs.length];
+}
+ 
+function drawSnake(ctx, canvas) {
+  ctx.fillStyle = bossSnakeMode ? '#1a0000' : '#000';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Grid
+  ctx.strokeStyle = bossSnakeMode ? '#330000' : '#001100'; ctx.lineWidth = 0.5;
+  for (let x=0;x<COLS;x++) { ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,canvas.height);ctx.stroke(); }
+  for (let y=0;y<ROWS;y++) { ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(canvas.width,y*CELL);ctx.stroke(); }
+  // Food
+  ctx.font = '16px sans-serif';
+  ctx.fillText(bossSnakeMode ? '💀' : '🍎', food.x*CELL+2, food.y*CELL+17);
+  // Snake
+  snakeArr.forEach((s,i) => {
+    ctx.fillStyle = bossSnakeMode ? (i===0?'#ff2200':'#cc0000') : (i===0?'#00ff44':'#00cc33');
+    ctx.fillRect(s.x*CELL+1,s.y*CELL+1,CELL-2,CELL-2);
+    if (i===0) { ctx.fillStyle='#000'; ctx.fillRect(s.x*CELL+5,s.y*CELL+5,3,3); ctx.fillRect(s.x*CELL+12,s.y*CELL+5,3,3); }
+  });
+  // Boss score target
+  if (bossSnakeMode) {
+    ctx.fillStyle = 'rgba(255,0,0,0.18)';
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+    ctx.fillStyle = '#ff4400'; ctx.font = '10px monospace';
+    ctx.fillText(`TARGET: 500  NOW: ${snakeScore}`, 4, 12);
+  }
+}
+ 
+document.addEventListener('keydown', e => {
+  if (!snakeRunning) return;
+  const keys = {ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},
+    w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0},
+    W:{x:0,y:-1},S:{x:0,y:1},A:{x:-1,y:0},D:{x:1,y:0}};
+  const nd = keys[e.key];
+  if (nd && !(nd.x===-dir.x&&nd.y===-dir.y)) { nextDir=nd; e.preventDefault(); }
+});
+ 
+// =========== NOTEPAD ===========
+let npWordWrap = true;
+let npDirtyFlag = false;
+let npUndoStack = [];
+let npCurrentFont = 'Share Tech Mono';
+ 
+function notepadNew() {
+  closeNpMenus();
+  const ta = document.getElementById('notepad-textarea');
+  if (npDirtyFlag) {
+    if (!confirm('Save changes to Untitled?')) { /* discard */ }
+  }
+  ta.value = '';
+  npDirtyFlag = false;
+  npUndoStack = [];
+  document.getElementById('notepad-title').textContent = 'Untitled — Notepad';
+  updateNpStatus();
+}
+ 
+function notepadDirty() {
+  npDirtyFlag = true;
+  const title = document.getElementById('notepad-title');
+  if (!title.textContent.startsWith('*')) title.textContent = '*' + title.textContent;
+  updateNpStatus();
+  // push to undo stack
+  const val = document.getElementById('notepad-textarea').value;
+  if (npUndoStack[npUndoStack.length-1] !== val) npUndoStack.push(val);
+  if (npUndoStack.length > 100) npUndoStack.shift();
+}
+ 
+function notepadUndo() {
+  closeNpMenus();
+  if (npUndoStack.length > 1) {
+    npUndoStack.pop();
+    document.getElementById('notepad-textarea').value = npUndoStack[npUndoStack.length-1];
+    updateNpStatus();
+  }
+}
+ 
+function notepadSelectAll() {
+  closeNpMenus();
+  const ta = document.getElementById('notepad-textarea');
+  ta.focus(); ta.select();
+}
+ 
+function notepadTime() {
+  closeNpMenus();
+  const ta = document.getElementById('notepad-textarea');
+  const now = new Date();
+  const ts = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ' ' + now.toLocaleDateString();
+  const pos = ta.selectionStart;
+  ta.value = ta.value.slice(0, pos) + ts + ta.value.slice(ta.selectionEnd);
+  ta.selectionStart = ta.selectionEnd = pos + ts.length;
+  notepadDirty();
+}
+ 
+function notepadSaveTxt() {
+  closeNpMenus();
+  const content = document.getElementById('notepad-textarea').value;
+  const blob = new Blob([content], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'document.txt';
+  a.click();
+  npDirtyFlag = false;
+  document.getElementById('notepad-title').textContent = 'document.txt — Notepad';
+}
+ 
+function toggleWordWrap() {
+  closeNpMenus();
+  npWordWrap = !npWordWrap;
+  const ta = document.getElementById('notepad-textarea');
+  ta.style.whiteSpace = npWordWrap ? 'pre-wrap' : 'pre';
+  ta.style.overflowX = npWordWrap ? 'hidden' : 'auto';
+  document.getElementById('np-wrap-item').textContent = (npWordWrap ? '✓ ' : '   ') + 'Word Wrap';
+  document.getElementById('np-status-wrap').textContent = 'Wrap: ' + (npWordWrap ? 'ON' : 'OFF');
+}
+ 
+function setNpFont(font) {
+  closeNpMenus();
+  npCurrentFont = font;
+  document.getElementById('notepad-textarea').style.fontFamily = font + ', monospace';
+}
+ 
+function showNotepadHelp() {
+  closeNpMenus();
+  alert('95XX Notepad\n\nKeyboard shortcuts:\n  Ctrl+Z  — Undo\n  Ctrl+A  — Select All\n  F5      — Insert Time/Date\n\nTip: Use File > Save as .txt to download your notes!');
+}
+ 
+function notepadKeydown(e) {
+  if (e.key === 'F5') { e.preventDefault(); notepadTime(); }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    checkNotepadCode();
+    const ta = e.target, s = ta.selectionStart;
+    ta.value = ta.value.slice(0,s) + '    ' + ta.value.slice(ta.selectionEnd);
+    ta.selectionStart = ta.selectionEnd = s + 4;
+    notepadDirty();
+  }
+}
+ 
+function updateNpStatus() {
+  const ta = document.getElementById('notepad-textarea');
+  const val = ta.value;
+  const lines = val.slice(0, ta.selectionStart).split('\n');
+  const ln = lines.length, col = lines[lines.length-1].length + 1;
+  document.getElementById('np-status-pos').textContent = `Ln ${ln}, Col ${col}`;
+  const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+  document.getElementById('np-status-words').textContent = `${words} word${words!==1?'s':''}`;
+  document.getElementById('np-status-chars').textContent = `${val.length} char${val.length!==1?'s':''}`;
+}
+ 
+// Wire cursor position update
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('notepad-textarea');
+  if (ta) { ta.addEventListener('keyup', updateNpStatus); ta.addEventListener('click', updateNpStatus); }
+});
+ 
+// Notepad dropdown menus toggle
+function closeNpMenus() {
+  ['np-file-menu','np-edit-menu','np-format-menu'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+ 
+// Override the menubar items to toggle dropdowns
+document.addEventListener('click', e => {
+  if (!e.target.closest('#notepad-app')) closeNpMenus();
+});
+ 
+// Patch the notepad menubar after DOM loads to wire dropdowns properly
+function npToggleMenu(menuId) {
+  const menus = ['np-file-menu','np-edit-menu','np-format-menu'];
+  menus.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === menuId && el.style.display === 'none') ? 'block' : 'none';
+  });
+}
+ 
+// =========== BATTERY + HACK SEQUENCE ===========
+let batteryLevel = 100;
+let hackPhase = false;
+let puzzleBatteryBonusUsed = false; // prevent farming the puzzle
+ 
+function updateBatteryUI() {
+  const fill = document.getElementById('battery-fill');
+  const pct  = document.getElementById('battery-pct');
+  pct.textContent = batteryLevel + '%';
+  fill.style.width = batteryLevel + '%';
+  if (batteryLevel > 50)      fill.style.background = '#00c400';
+  else if (batteryLevel > 20) fill.style.background = '#e8a000';
+  else if (batteryLevel > 10) fill.style.background = '#dd2200';
+  else                         fill.style.background = '#ff0000';
+ 
+  // Pulse red warning below 15%
+  const shell = document.getElementById('battery-shell');
+  if (batteryLevel <= 15 && batteryLevel > 0) {
+    shell.style.animation = 'batteryPulse 0.6s ease-in-out infinite';
+  } else {
+    shell.style.animation = '';
+  }
+}
+ 
+// Add the pulse keyframe dynamically
+const bStyle = document.createElement('style');
+bStyle.textContent = `@keyframes batteryPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,0,0,0.6)} 50%{box-shadow:0 0 0 4px rgba(255,0,0,0)} }`;
+document.head.appendChild(bStyle);
+ 
+// Drain battery at random intervals between 2-3.5 seconds
+function scheduleBatteryDrain() {
+  if (hackPhase) {
+    // Schedule next check
+    setTimeout(scheduleBatteryDrain, 500);
+    return;
+  }
+  
+  batteryLevel = Math.max(0, batteryLevel - 1);
+  updateBatteryUI();
+ 
+  // Warning beeps at key thresholds
+  if (batteryLevel === 50) {
+    playBeep(520, 0.12, 0.08);
+  } else if (batteryLevel === 20) {
+    playBeep(440, 0.15, 0.12);
+    setTimeout(() => playBeep(440, 0.15, 0.12), 200);
+  } else if (batteryLevel === 10) {
+    playBeep(330, 0.18, 0.16);
+    setTimeout(() => playBeep(330, 0.18, 0.16), 220);
+    setTimeout(() => playBeep(330, 0.18, 0.16), 440);
+  } else if (batteryLevel <= 5 && batteryLevel > 0) {
+    playBeep(260, 0.14, 0.18);
+  }
+ 
+  if (batteryLevel === 0) {
+    startHackSequence();
+    return;
+  }
+ 
+  // Schedule next drain with random delay (2300-3800ms)
+  const randomDelay = 2300 + Math.random() * 1500;
+  setTimeout(scheduleBatteryDrain, randomDelay);
+}
+ 
+// Start the battery drain cycle
+scheduleBatteryDrain();
+ 
+// ---- GLITCH SOUND ENGINE (Web Audio API — no external files) ----
+let hackAudioCtx = null;
+ 
+function getAudioCtx() {
+  if (!hackAudioCtx) {
+    hackAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // Resume if suspended (browser autoplay policy)
+  if (hackAudioCtx.state === 'suspended') hackAudioCtx.resume();
+  return hackAudioCtx;
+}
+ 
+// Prime the AudioContext on first user interaction so it's ready for the hack
+function primeAudio() {
+  try {
+    const ctx = getAudioCtx();
+    // Play a completely silent buffer — just unlocks the context
+    const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start();
+  } catch(e) {}
+  document.removeEventListener('click', primeAudio);
+  document.removeEventListener('keydown', primeAudio);
+  document.removeEventListener('mousemove', primeAudio);
+}
+document.addEventListener('click', primeAudio);
+document.addEventListener('keydown', primeAudio);
+document.addEventListener('mousemove', primeAudio);
+ 
+// Short burst of white noise — static/zap
+function playStatic(duration = 0.08, volume = 0.25) {
+  try {
+    const ctx = getAudioCtx();
+    const bufLen = ctx.sampleRate * duration;
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass';
+    filt.frequency.value = 1800 + Math.random() * 3000;
+    filt.Q.value = 0.5;
+    src.connect(filt); filt.connect(gain); gain.connect(ctx.destination);
+    src.start(); src.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+ 
+// Low rumbling distortion buzz
+function playBuzz(freq = 60, duration = 0.18, volume = 0.18) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const dist = ctx.createWaveShaper();
+    // Heavy distortion curve
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i * 2) / 256 - 1;
+      curve[i] = (Math.PI + 400) * x / (Math.PI + 400 * Math.abs(x));
+    }
+    dist.curve = curve;
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.4, ctx.currentTime + duration);
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(dist); dist.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+ 
+// High-pitched digital screech / glitch tone
+function playScreech(freq = 880, duration = 0.06, volume = 0.15) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * (Math.random() > 0.5 ? 2.5 : 0.3), ctx.currentTime + duration);
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+ 
+// Keyboard typewriter blip
+function playTypeBlip() {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 300 + Math.random() * 400;
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.04);
+  } catch(e) {}
+}
+ 
+// Deep boom / impact
+function playBoom(volume = 0.4) {
+  try {
+    const ctx = getAudioCtx();
+    const bufLen = ctx.sampleRate * 0.6;
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 3);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = 120;
+    src.connect(filt); filt.connect(gain); gain.connect(ctx.destination);
+    src.start(); src.stop(ctx.currentTime + 0.6);
+  } catch(e) {}
+}
+ 
+// Short clean warning beep
+function playBeep(freq = 440, duration = 0.12, volume = 0.1) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+ 
+// Continuous chaotic glitch noise loop — returns a stop function
+function startGlitchLoop() {
+  let running = true;
+  let timeoutIds = [];
+ 
+  function scheduleNext() {
+    if (!running) return;
+    const delay = 40 + Math.random() * 180;
+    const id = setTimeout(() => {
+      if (!running) return;
+      const r = Math.random();
+      if      (r < 0.35) playStatic(0.05 + Math.random()*0.12, 0.15 + Math.random()*0.2);
+      else if (r < 0.60) playScreech(200 + Math.random()*2000, 0.04 + Math.random()*0.1, 0.1 + Math.random()*0.15);
+      else if (r < 0.80) playBuzz(40 + Math.random()*120, 0.08 + Math.random()*0.2, 0.12);
+      else               playTypeBlip();
+      scheduleNext();
+    }, delay);
+    timeoutIds.push(id);
+  }
+ 
+  scheduleNext();
+  return () => { running = false; timeoutIds.forEach(clearTimeout); };
+}
+ 
+// ---- HACK SEQUENCE ----
+function startHackSequence() {
+  hackPhase = true;
+  const overlay = document.getElementById('hack-overlay');
+  overlay.style.display = 'block';
+  document.body.classList.add('glitching');
+ 
+  // Kick off with a loud boom + immediate static burst
+  playBoom(0.5);
+  setTimeout(() => playStatic(0.3, 0.4), 80);
+  setTimeout(() => playScreech(440, 0.15, 0.25), 200);
+ 
+  // Start continuous glitch sound loop
+  const stopGlitchLoop = startGlitchLoop();
+ 
+  // Spew fake terminal lines onto overlay
+  const term = document.createElement('div');
+  term.style.cssText = `position:absolute;top:10%;left:5%;width:60%;background:rgba(0,0,0,0.82);color:#00ff41;font-family:'Share Tech Mono',monospace;font-size:12px;padding:12px;border:1px solid #00ff41;z-index:50001;line-height:1.7;overflow:hidden;max-height:70vh;`;
+  overlay.appendChild(term);
+ 
+  const hackLines = [
+    'INITIATING BREACH PROTOCOL...','BYPASSING FIREWALL [████████] DONE',
+    'ACCESSING C:\\WINDOWS\\SYSTEM32...','EXTRACTING REGISTRY KEYS...',
+    'USER DATA COMPROMISED','UPLOADING TO REMOTE SERVER 194.65.x.x...',
+    'DISABLING ANTIVIRUS... OK','ENCRYPTING LOCAL FILES...',
+    'C:\\Users\\YOU\\Documents -> ENCRYPTED','C:\\Users\\YOU\\Pictures -> ENCRYPTED',
+    'DELETING SYSTEM LOGS...','KERNEL PANIC: MEMORY FAULT 0x0000007B',
+    'WARNING: CPU TEMPERATURE CRITICAL','OVERRIDING BIOS SETTINGS...',
+    'INJECTING PAYLOAD...','!!! SYSTEM COMPROMISED !!!',
+    'GOODBYE, USER 😈','SHUTTING DOWN IN 5...',
+  ];
+ 
+  let lineIdx = 0;
+  const lineTimer = setInterval(() => {
+    if (lineIdx >= hackLines.length) { clearInterval(lineTimer); return; }
+    const line = document.createElement('div');
+    line.textContent = '> ' + hackLines[lineIdx++];
+    const isRed = line.textContent.includes('!!!') || line.textContent.includes('GOODBYE') || line.textContent.includes('SHUTTING');
+    if (isRed) {
+      line.style.color = '#ff4444';
+      playScreech(1200 + Math.random()*800, 0.12, 0.22);
+      playBuzz(80, 0.15, 0.2);
+    } else {
+      playTypeBlip();
+    }
+    term.appendChild(line);
+    term.scrollTop = term.scrollHeight;
+  }, 280);
+ 
+  // Random glitch rectangles flashing on screen
+  const glitchTimer = setInterval(() => {
+    const g = document.createElement('div');
+    const gw = 60 + Math.random()*300, gh = 8 + Math.random()*40;
+    const gx = Math.random()*(window.innerWidth - gw), gy = Math.random()*(window.innerHeight - gh);
+    g.style.cssText = `position:absolute;left:${gx}px;top:${gy}px;width:${gw}px;height:${gh}px;background:${randGlitchColor()};opacity:0.7;pointer-events:none;mix-blend-mode:screen;`;
+    overlay.appendChild(g);
+    setTimeout(() => g.remove(), 120 + Math.random()*200);
+  }, 60);
+ 
+  // Shake all windows violently
+  const shakeTimer = setInterval(() => {
+    document.querySelectorAll('.window:not(.hidden)').forEach(w => {
+      const ox = parseFloat(w.style.left)||100, oy = parseFloat(w.style.top)||100;
+      w.style.left = (ox + (Math.random()-0.5)*18) + 'px';
+      w.style.top  = (oy + (Math.random()-0.5)*12) + 'px';
+    });
+  }, 80);
+ 
+  // Add scanline
+  const scan = document.createElement('div');
+  scan.className = 'glitch-line';
+  overlay.appendChild(scan);
+ 
+  // After 5 seconds → DEATH SCREEN
+  setTimeout(() => {
+    clearInterval(glitchTimer);
+    clearInterval(shakeTimer);
+    stopGlitchLoop();
+    // Final death stinger — loud screech then silence
+    playScreech(80, 0.05, 0.35);
+    setTimeout(() => playBoom(0.7), 60);
+    setTimeout(() => playStatic(0.4, 0.5), 150);
+    document.body.classList.remove('glitching');
+    overlay.style.display = 'none';
+    showDeathScreen();
+  }, 5000);
+}
+ 
+function randGlitchColor() {
+  const colors = ['#ff0000','#00ff00','#0000ff','#ff00ff','#00ffff','#ffff00','#ffffff','#ff8800'];
+  return colors[Math.floor(Math.random()*colors.length)];
+}
+ 
+// ---- DEATH / SCARY SCREEN ----
+function showDeathScreen() {
+  const ds = document.getElementById('death-screen');
+  ds.style.display = 'flex';
+  drawScaryFace();
+  // Eerie low drone on death screen
+  playDeathDrone();
+}
+ 
+function playDeathDrone() {
+  try {
+    const ctx = getAudioCtx();
+    // Layer 1 — deep sub rumble
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(38, ctx.currentTime);
+    osc1.frequency.linearRampToValueAtTime(34, ctx.currentTime + 5);
+    gain1.gain.setValueAtTime(0, ctx.currentTime);
+    gain1.gain.linearRampToValueAtTime(0.28, ctx.currentTime + 1.2);
+    osc1.connect(gain1); gain1.connect(ctx.destination);
+    osc1.start();
+ 
+    // Layer 2 — dissonant mid whine
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sawtooth';
+    osc2.frequency.setValueAtTime(155, ctx.currentTime);
+    osc2.frequency.setValueAtTime(148, ctx.currentTime + 2);
+    osc2.frequency.setValueAtTime(160, ctx.currentTime + 4);
+    gain2.gain.setValueAtTime(0, ctx.currentTime);
+    gain2.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 1.5);
+    const filt2 = ctx.createBiquadFilter();
+    filt2.type = 'lowpass'; filt2.frequency.value = 400;
+    osc2.connect(filt2); filt2.connect(gain2); gain2.connect(ctx.destination);
+    osc2.start();
+ 
+    // Layer 3 — high tension shimmer
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(620, ctx.currentTime);
+    osc3.frequency.linearRampToValueAtTime(590, ctx.currentTime + 6);
+    gain3.gain.setValueAtTime(0, ctx.currentTime);
+    gain3.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 2);
+    osc3.connect(gain3); gain3.connect(ctx.destination);
+    osc3.start();
+ 
+    // Occasional static crackle over the drone
+    let droneRunning = true;
+    function crackle() {
+      if (!droneRunning) return;
+      playStatic(0.06 + Math.random()*0.1, 0.08 + Math.random()*0.1);
+      setTimeout(crackle, 600 + Math.random()*1800);
+    }
+    setTimeout(crackle, 800);
+ 
+    // Store refs for cleanup on reboot
+    window._deathOscillators = [osc1, osc2, osc3];
+    window._deathDroneRunning = () => { droneRunning = false; };
+  } catch(e) {}
+}
+ 
+function drawScaryFace() {
+  const canvas = document.getElementById('scary-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+ 
+  // Black background
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+ 
+  // Eerie red fog
+  const fog = ctx.createRadialGradient(W/2, H/2, 30, W/2, H/2, 260);
+  fog.addColorStop(0, 'rgba(180,0,0,0.35)');
+  fog.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = fog;
+  ctx.fillRect(0, 0, W, H);
+ 
+  // Face silhouette (dark oval)
+  ctx.save();
+  ctx.shadowColor = '#ff0000';
+  ctx.shadowBlur = 40;
+  ctx.fillStyle = '#0a0a0a';
+  ctx.beginPath();
+  ctx.ellipse(W/2, H/2 - 10, 140, 175, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+ 
+  // Cracked skin texture lines
+  ctx.strokeStyle = 'rgba(120,0,0,0.4)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 18; i++) {
+    const sx = W/2 + (Math.random()-0.5)*180, sy = H/2 + (Math.random()-0.5)*220;
+    ctx.beginPath(); ctx.moveTo(sx, sy);
+    for (let j = 0; j < 4; j++) ctx.lineTo(sx+(Math.random()-0.5)*40, sy+(Math.random()-0.5)*40);
+    ctx.stroke();
+  }
+ 
+  // Eyes — hollow glowing pits
+  [[-52, -40],[52, -40]].forEach(([ex, ey]) => {
+    const eyeX = W/2 + ex, eyeY = H/2 + ey;
+    // Eye socket dark
+    ctx.save();
+    ctx.shadowColor = '#ff2200'; ctx.shadowBlur = 22;
+    const eg = ctx.createRadialGradient(eyeX, eyeY, 2, eyeX, eyeY, 28);
+    eg.addColorStop(0, '#ff1100');
+    eg.addColorStop(0.4, '#660000');
+    eg.addColorStop(1, '#000');
+    ctx.fillStyle = eg;
+    ctx.beginPath(); ctx.ellipse(eyeX, eyeY, 28, 22, 0, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    // Pupil slit
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(eyeX, eyeY, 5, 14, 0, 0, Math.PI*2); ctx.fill();
+  });
+ 
+  // Nose — sunken triangular void
+  ctx.fillStyle = '#050005';
+  ctx.beginPath();
+  ctx.moveTo(W/2, H/2 + 10);
+  ctx.lineTo(W/2 - 18, H/2 + 55);
+  ctx.lineTo(W/2 + 18, H/2 + 55);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(150,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+ 
+  // Mouth — wide jagged grin with sharp teeth
+  ctx.save();
+  ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 16;
+  ctx.fillStyle = '#1a0000';
+  ctx.beginPath();
+  ctx.moveTo(W/2 - 90, H/2 + 80);
+  ctx.quadraticCurveTo(W/2, H/2 + 130, W/2 + 90, H/2 + 80);
+  ctx.quadraticCurveTo(W/2, H/2 + 105, W/2 - 90, H/2 + 80);
+  ctx.fill();
+  ctx.restore();
+ 
+  // Teeth (jagged)
+  ctx.fillStyle = '#c8c8c8';
+  const teethX = [W/2-72, W/2-48, W/2-24, W/2, W/2+24, W/2+48];
+  teethX.forEach((tx, i) => {
+    const h = 14 + Math.random()*10;
+    ctx.beginPath();
+    ctx.moveTo(tx, H/2 + 82);
+    ctx.lineTo(tx + 18, H/2 + 82);
+    ctx.lineTo(tx + 9, H/2 + 82 + h);
+    ctx.closePath(); ctx.fill();
+  });
+ 
+  // Blood drips from mouth
+  ctx.fillStyle = '#cc0000';
+  [[W/2-30, H/2+112],[W/2+10, H/2+118],[W/2+50, H/2+108]].forEach(([bx, by]) => {
+    ctx.beginPath();
+    ctx.ellipse(bx, by, 4, 14, Math.random()*0.3, 0, Math.PI*2);
+    ctx.fill();
+  });
+ 
+  // Glowing outline around face
+  ctx.save();
+  ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 60;
+  ctx.strokeStyle = 'rgba(200,0,0,0.15)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(W/2, H/2 - 10, 143, 178, 0, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+ 
+  // Noise static overlay
+  for (let i = 0; i < 1800; i++) {
+    const nx = Math.random()*W, ny = Math.random()*H;
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.04})`;
+    ctx.fillRect(nx, ny, 1, 1);
+  }
+ 
+  // Top text
+  ctx.fillStyle = '#ff0000';
+  ctx.font = 'bold 22px VT323, monospace';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 12;
+  ctx.fillText('YOU HAVE BEEN HACKED', W/2, 36);
+ 
+  // Bottom text
+  ctx.font = '14px VT323, monospace';
+  ctx.fillStyle = '#aa0000';
+  ctx.shadowBlur = 6;
+  ctx.fillText('ALL YOUR FILES ARE BELONG TO US', W/2, H - 14);
+ 
+  // Animate flicker
+  animateDeathScreen(canvas, ctx);
+}
+ 
+function animateDeathScreen(canvas, ctx) {
+  let frame = 0;
+  function flicker() {
+    if (!document.getElementById('death-screen').style.display || document.getElementById('death-screen').style.display === 'none') return;
+    frame++;
+    // Every ~20 frames add a random scan glitch
+    if (frame % 20 === 0) {
+      const y = Math.random() * canvas.height;
+      const h = 2 + Math.random() * 8;
+      const shift = (Math.random()-0.5)*30;
+      const strip = ctx.getImageData(0, y, canvas.width, h);
+      ctx.putImageData(strip, shift, y);
+    }
+    // Occasional random pixel flash
+    if (Math.random() < 0.05) {
+      ctx.fillStyle = `rgba(255,0,0,${Math.random()*0.08})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    requestAnimationFrame(flicker);
+  }
+  requestAnimationFrame(flicker);
+}
+ 
+ 
+// Open browser on load
+// =========== NOTEPAD ===========
+let notepadModified = false;
+let notepadWordWrap = false;
+let notepadFileName = 'Untitled';
+ 
+function notepadDirty() {
+  notepadModified = true;
+  updateNotepadTitle();
+  updateNotepadStatus();
+}
+ 
+function updateNotepadTitle() {
+  const title = (notepadModified ? '* ' : '') + notepadFileName + ' - Notepad';
+  document.getElementById('notepad-title').textContent = title;
+}
+ 
+function updateNotepadStatus() {
+  const area = document.getElementById('notepad-area');
+  if (!area) return;
+  const text = area.value;
+  const before = text.substring(0, area.selectionStart);
+  const lines = before.split('\n');
+  const ln = lines.length;
+  const col = lines[lines.length - 1].length + 1;
+  document.getElementById('notepad-status').textContent = `Ln ${ln}, Col ${col}`;
+  const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+  document.getElementById('notepad-words').textContent = `${words} word${words !== 1 ? 's' : ''}`;
+}
+ 
+function notepadNew() {
+  const area = document.getElementById('notepad-area');
+  if (notepadModified) {
+    if (!confirm('Discard changes and start a new document?')) return;
+  }
+  area.value = '';
+  notepadFileName = 'Untitled';
+  notepadModified = false;
+  updateNotepadTitle();
+  updateNotepadStatus();
+  closeNotepadMenus();
+}
+ 
+function notepadSelectAll() {
+  const area = document.getElementById('notepad-area');
+  area.focus();
+  area.select();
+  closeNotepadMenus();
+}
+ 
+function toggleWordWrap() {
+  notepadWordWrap = !notepadWordWrap;
+  const area = document.getElementById('notepad-area');
+  area.style.whiteSpace = notepadWordWrap ? 'pre-wrap' : 'pre';
+  area.style.overflowX = notepadWordWrap ? 'hidden' : 'auto';
+  document.getElementById('notepad-wrap-status').textContent = `Word Wrap: ${notepadWordWrap ? 'ON' : 'OFF'}`;
+  closeNotepadMenus();
+}
+ 
+function notepadDownload() {
+  const text = document.getElementById('notepad-area').value;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (notepadFileName === 'Untitled' ? 'document' : notepadFileName) + '.txt';
+  a.click();
+  notepadModified = false;
+  updateNotepadTitle();
+  closeNotepadMenus();
+}
+ 
+function showNotepadHelp() {
+  alert('95XX Notepad\n\nType anything. Use Format menu to toggle word wrap.\nFile > Save As to download your text.\n\nPowered by 95XX™');
+}
+ 
+function closeNotepadMenus() {
+  document.getElementById('notepad-file-menu').style.display = 'none';
+}
+ 
+// Wire up menubar clicks with proper dropdowns
+document.addEventListener('click', e => {
+  const menu = document.getElementById('notepad-file-menu');
+  if (!menu) return;
+  const trigger = e.target.closest('#notepad-app .win-menu-item');
+  if (trigger) {
+    const text = trigger.textContent.trim();
+    if (text.startsWith('File')) {
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+      e.stopPropagation();
+      return;
+    }
+  }
+  if (!e.target.closest('#notepad-file-menu')) {
+    menu.style.display = 'none';
+  }
+});
+ 
+// Update cursor position on click/keyup in textarea
+document.addEventListener('click', e => {
+  if (e.target.id === 'notepad-area') updateNotepadStatus();
+});
+document.addEventListener('keyup', e => {
+  if (e.target.id === 'notepad-area') updateNotepadStatus();
+});
+ 
+// =========== GALLERY ===========
+const galleryTitles = ['🐾 Cute Puppies!', '🌐 Swag Browser Screenshot', '👻 Haunted Hill', '🎲 Dice Roll: 2 · 2 · 3 · 6'];
+let galleryZoomed = false;
+ 
+function galleryZoom(idx) {
+  if (galleryZoomed) { galleryZoomOut(); return; }
+  const galleryBody = document.querySelector('#gallery-app .win-body');
+  const frames = document.querySelectorAll('.gallery-frame');
+  if (!frames[idx] || !galleryBody) return;
+  
+  const svg = frames[idx].querySelector('svg');
+  if (!svg) return;
+  
+  galleryZoomed = true;
+  galleryBody.innerHTML = `
+    <div style="background:#000;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;overflow:auto;">
+      <div style="color:#fff;font-family:'Share Tech Mono',monospace;font-size:14px;margin-bottom:12px;">${galleryTitles[idx]}</div>
+      <div style="border:3px solid #666;background:#222;padding:4px;max-width:90%;max-height:70%;">
+        ${svg.outerHTML}
+      </div>
+      <div style="color:#bbb;font-family:'Share Tech Mono',monospace;font-size:11px;margin-top:12px;cursor:pointer;text-decoration:underline;" onclick="galleryZoomOut()">← Back to Gallery</div>
+    </div>`;
+}
+ 
+function galleryZoomOut() {
+  galleryZoomed = false;
+  location.reload(); // Simple nuclear option - reloads everything fresh
+}
+ 
+function galleryZoomClose() {
+  // Legacy function - not used anymore
+}
+ 
+// =========== ESCAPED SNAKE SYSTEM (250+ Score) ===========
+let snakeEscaped = false;
+let escapedSnakeBody = [];
+let escapedSnakeTimer = null;
+ 
+function triggerWallBreak() {
+  clearInterval(snakeTimer);
+  snakeRunning = false;
+  snakeEscaped = true;
+ 
+  // Visual: crack the snake canvas
+  const canvas = document.getElementById('snake-canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Flash effect
+  let flashes = 0;
+  const flashTimer = setInterval(() => {
+    ctx.fillStyle = flashes % 2 === 0 ? '#fff' : '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    flashes++;
+    if (flashes > 8) {
+      clearInterval(flashTimer);
+      // Draw cracked wall
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawWallCracks(ctx, canvas);
+    }
+  }, 120);
+ 
+  // Sound effects
+  playBoom(0.6);
+  setTimeout(() => playStatic(0.4, 0.4), 200);
+  setTimeout(() => playScreech(220, 0.3, 0.35), 400);
+ 
+  // Show message
+  document.getElementById('snake-msg').style.color = '#ff8800';
+  document.getElementById('snake-msg').textContent = '💥 WALL BROKEN! SNAKE ESCAPED! 💥';
+  document.getElementById('snake-msg').style.display = 'block';
+ 
+  // Convert snake position to browser coordinates
+  convertSnakeToBrowser();
+  
+  setTimeout(() => {
+    document.getElementById('snake-msg').textContent = '🐍 The snake is now free in the browser! Watch out! 🐍';
+  }, 2000);
+}
+ 
+function drawWallCracks(ctx, canvas) {
+  ctx.strokeStyle = '#ff4400';
+  ctx.lineWidth = 3;
+  // Jagged cracks
+  ctx.beginPath();
+  ctx.moveTo(0, 50); 
+  ctx.lineTo(60, 80);
+  ctx.lineTo(120, 45);
+  ctx.lineTo(200, 70);
+  ctx.lineTo(canvas.width, 30);
+  ctx.stroke();
+  
+  ctx.beginPath();
+  ctx.moveTo(0, 200);
+  ctx.lineTo(80, 180);
+  ctx.lineTo(150, 220);
+  ctx.lineTo(250, 190);
+  ctx.lineTo(canvas.width, 240);
+  ctx.stroke();
+ 
+  ctx.beginPath();
+  ctx.moveTo(40, 0);
+  ctx.lineTo(30, 100);
+  ctx.lineTo(50, 180);
+  ctx.lineTo(35, canvas.height);
+  ctx.stroke();
+}
+ 
+function convertSnakeToBrowser() {
+  // Convert snake from game grid to browser pixel positions
+  const browserContent = document.getElementById('browser-content');
+  if (!browserContent) return;
+ 
+  const contentRect = browserContent.getBoundingClientRect();
+  escapedSnakeBody = snakeArr.map((segment, i) => ({
+    x: contentRect.left + (segment.x * 18) + 40, // Scale and offset
+    y: contentRect.top + (segment.y * 18) + 60,
+    isHead: i === 0
+  }));
+ 
+  // Start the escaped snake movement
+  startEscapedSnake();
+}
+ 
+function startEscapedSnake() {
+  const browserContent = document.getElementById('browser-content');
+  if (!browserContent) return;
+ 
+  // Create snake overlay elements
+  createEscapedSnakeElements();
+ 
+  // Start movement
+  escapedSnakeTimer = setInterval(() => {
+    moveEscapedSnake();
+    renderEscapedSnake();
+  }, 180); // Slow enough to see but still active
+}
+ 
+function createEscapedSnakeElements() {
+  // Remove any existing escaped snake
+  document.querySelectorAll('.escaped-snake-segment').forEach(el => el.remove());
+ 
+  escapedSnakeBody.forEach((segment, i) => {
+    const div = document.createElement('div');
+    div.className = 'escaped-snake-segment';
+    div.style.cssText = `
+      position: fixed;
+      width: 16px;
+      height: 16px;
+      background: ${segment.isHead ? '#00ff44' : '#00cc33'};
+      border: 1px solid #008822;
+      border-radius: 2px;
+      z-index: 9999;
+      pointer-events: none;
+      left: ${segment.x}px;
+      top: ${segment.y}px;
+      transition: all 0.15s linear;
+    `;
+    if (segment.isHead) {
+      div.innerHTML = '<div style="width:4px;height:4px;background:#000;position:absolute;top:3px;left:2px;"></div><div style="width:4px;height:4px;background:#000;position:absolute;top:3px;right:2px;"></div>';
+    }
+    document.body.appendChild(div);
+  });
+}
+ 
+function moveEscapedSnake() {
+  if (escapedSnakeBody.length === 0) return;
+ 
+  // Simple AI: move toward center of browser content, avoiding edges
+  const browserContent = document.getElementById('browser-content');
+  if (!browserContent) return;
+ 
+  const contentRect = browserContent.getBoundingClientRect();
+  const head = escapedSnakeBody[0];
+  
+  // Target center of content area
+  const targetX = contentRect.left + contentRect.width / 2;
+  const targetY = contentRect.top + contentRect.height / 2;
+  
+  // Move head toward target with some randomness
+  const dx = targetX > head.x ? 1 : -1;
+  const dy = targetY > head.y ? 1 : -1;
+  
+  // Add randomness
+  const moveX = dx + (Math.random() - 0.5) * 2;
+  const moveY = dy + (Math.random() - 0.5) * 2;
+  
+  // Move snake body (follow the leader)
+  for (let i = escapedSnakeBody.length - 1; i > 0; i--) {
+    escapedSnakeBody[i].x = escapedSnakeBody[i-1].x;
+    escapedSnakeBody[i].y = escapedSnakeBody[i-1].y;
+  }
+  
+  // Move head
+  head.x += moveX * 8;
+  head.y += moveY * 8;
+  
+  // Boundary check - wrap around or bounce
+  const margin = 20;
+  if (head.x < contentRect.left - margin) head.x = contentRect.right + margin;
+  if (head.x > contentRect.right + margin) head.x = contentRect.left - margin;
+  if (head.y < contentRect.top - margin) head.y = contentRect.bottom + margin;
+  if (head.y > contentRect.bottom + margin) head.y = contentRect.top - margin;
+}
+ 
+function renderEscapedSnake() {
+  const segments = document.querySelectorAll('.escaped-snake-segment');
+  segments.forEach((segment, i) => {
+    if (escapedSnakeBody[i]) {
+      segment.style.left = escapedSnakeBody[i].x + 'px';
+      segment.style.top = escapedSnakeBody[i].y + 'px';
+    }
+  });
+}
+ 
+function stopEscapedSnake() {
+  if (escapedSnakeTimer) {
+    clearInterval(escapedSnakeTimer);
+    escapedSnakeTimer = null;
+  }
+  document.querySelectorAll('.escaped-snake-segment').forEach(el => el.remove());
+  snakeEscaped = false;
+  escapedSnakeBody = [];
+}
+ 
+// =========== DOOR / KEY SECRET SYSTEM ===========
+let doorUnlocked = false;
+let keyVisible = false;
+let doorGone = false; // set true after boss loss — door vanishes forever
+ 
+function renderDoorHTML() {
+  if (doorGone) return ''; // door is gone forever after boss loss
+  if (!doorUnlocked) {
+    return `
+      <div style="font-size:10px;color:#999;font-family:Arial,sans-serif;margin-bottom:2px;">???</div>
+      <div id="swag-door" onclick="tryOpenDoor()" style="cursor:${doorUnlocked?'pointer':'not-allowed'};display:inline-block;">
+        <svg width="64" height="80" viewBox="0 0 64 80" xmlns="http://www.w3.org/2000/svg">
+          <!-- Door frame -->
+          <rect x="2" y="2" width="60" height="76" rx="3" fill="#5C3317" stroke="#3a2010" stroke-width="2"/>
+          <!-- Door panel -->
+          <rect x="7" y="7" width="50" height="66" rx="2" fill="#7a4420"/>
+          <!-- Door panels detail -->
+          <rect x="11" y="11" width="19" height="24" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <rect x="34" y="11" width="19" height="24" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <rect x="11" y="39" width="19" height="28" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <rect x="34" y="39" width="19" height="28" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <!-- Lock body -->
+          <rect x="26" y="36" width="12" height="10" rx="2" fill="#888" stroke="#555" stroke-width="1"/>
+          <!-- Lock shackle -->
+          <path d="M29,36 Q29,30 35,30 Q41,30 41,36" stroke="#888" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- Keyhole -->
+          <circle cx="32" cy="40" r="2.2" fill="#333"/>
+          <rect x="31" y="41" width="2" height="3" fill="#333"/>
+        </svg>
+      </div>
+      <div id="swag-key-area" style="min-height:30px;margin-top:4px;"></div>
+      <div style="font-size:9px;color:#bbb;font-family:Arial,monospace;margin-top:2px;">🔒 locked</div>`;
+  } else {
+    return `
+      <div style="font-size:10px;color:#00aa00;font-family:Arial,sans-serif;margin-bottom:2px;font-weight:bold;">UNLOCKED!</div>
+      <div id="swag-door" onclick="tryOpenDoor()" style="cursor:pointer;display:inline-block;">
+        <svg width="64" height="80" viewBox="0 0 64 80" xmlns="http://www.w3.org/2000/svg">
+          <!-- Door frame -->
+          <rect x="2" y="2" width="60" height="76" rx="3" fill="#5C3317" stroke="#3a2010" stroke-width="2"/>
+          <!-- Door ajar (slightly open) -->
+          <rect x="7" y="7" width="44" height="66" rx="2" fill="#7a4420"/>
+          <rect x="11" y="11" width="17" height="24" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <rect x="32" y="11" width="15" height="24" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <rect x="11" y="39" width="17" height="28" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <rect x="32" y="39" width="15" height="28" rx="1" fill="#6a3a18" stroke="#5a3010" stroke-width="1"/>
+          <!-- Gap showing inside — red glow -->
+          <rect x="51" y="7" width="8" height="66" fill="#ff4400" opacity="0.7"/>
+          <!-- Open lock -->
+          <rect x="26" y="38" width="12" height="10" rx="2" fill="#888" stroke="#555" stroke-width="1"/>
+          <path d="M29,38 Q29,28 37,28 Q43,28 43,33" stroke="#888" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- Keyhole empty -->
+          <circle cx="32" cy="42" r="2.2" fill="#333"/>
+          <rect x="31" y="43" width="2" height="3" fill="#333"/>
+        </svg>
+      </div>
+      <div id="swag-key-area" style="min-height:30px;margin-top:4px;"></div>
+      <div style="font-size:9px;color:#00cc00;font-family:Arial,monospace;margin-top:2px;animation:blink95 0.8s step-end infinite;">▶ ENTER ◀</div>`;
+  }
+}
+ 
+function showKeyInBrowser() {
+  keyVisible = true;
+  const area = document.getElementById('swag-key-area');
+  if (!area) return;
+  area.innerHTML = `
+    <div id="swag-key" onclick="collectKey()" title="Click to pick up the key!" style="cursor:pointer;animation:floatKey 1s ease-in-out infinite alternate;display:inline-block;">
+      <svg width="36" height="18" viewBox="0 0 36 18" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="7" cy="9" r="7" fill="#FFD700" stroke="#B8860B" stroke-width="1.5"/>
+        <circle cx="7" cy="9" r="3.5" fill="#B8860B"/>
+        <rect x="13" y="7.5" width="16" height="3" rx="1" fill="#FFD700" stroke="#B8860B" stroke-width="1"/>
+        <rect x="25" y="10.5" width="3" height="4" rx="0.5" fill="#FFD700" stroke="#B8860B" stroke-width="0.8"/>
+        <rect x="30" y="10.5" width="3" height="4" rx="0.5" fill="#FFD700" stroke="#B8860B" stroke-width="0.8"/>
+      </svg>
+    </div>
+    <div style="font-size:9px;color:#cc9900;font-family:Arial,monospace;">🗝 a key appeared!</div>`;
+  // Add float animation
+  if (!document.getElementById('key-anim-style')) {
+    const s = document.createElement('style');
+    s.id = 'key-anim-style';
+    s.textContent = `@keyframes floatKey{from{transform:translateY(0)}to{transform:translateY(-5px)}} @keyframes blink95{50%{opacity:0}}`;
+    document.head.appendChild(s);
+  }
+}
+ 
+function collectKey() {
+  keyVisible = false;
+  doorUnlocked = true;
+  const area = document.getElementById('swag-key-area');
+  if (area) {
+    area.innerHTML = `<div style="font-size:10px;color:#00cc00;font-family:Arial,monospace;">✓ key collected!</div>`;
+  }
+  // Re-render door as unlocked
+  setTimeout(() => {
+    const doorArea = document.getElementById('swag-door-area');
+    if (doorArea) doorArea.innerHTML = renderDoorHTML();
+    playBeep(660, 0.1, 0.12);
+    setTimeout(() => playBeep(880, 0.1, 0.12), 120);
+    setTimeout(() => playBeep(1100, 0.15, 0.12), 240);
+  }, 400);
+}
+ 
+function tryOpenDoor() {
+  if (!doorUnlocked) {
+    // Rattle the door
+    const door = document.getElementById('swag-door');
+    if (door) {
+      door.style.transition = 'transform 0.05s';
+      let i = 0;
+      const rattle = setInterval(() => {
+        door.style.transform = `translateX(${i%2===0?-4:4}px)`;
+        i++;
+        if (i > 6) { clearInterval(rattle); door.style.transform = ''; }
+      }, 50);
+    }
+    playBeep(180, 0.12, 0.15);
+    return;
+  }
+  // OPEN! Launch boss snake
+  playBeep(220, 0.08, 0.2);
+  setTimeout(() => playBeep(165, 0.08, 0.2), 100);
+  setTimeout(() => playBuzz(80, 0.3, 0.25), 200);
+  doorUnlocked = false; // reset door after entering
+  startBossSnake();
+}
+ 
+// ---- Notepad TAB secret code check ----
+function checkNotepadCode() {
+  if (doorGone) return; // code disabled after boss loss
+  const ta = document.getElementById('notepad-textarea') || document.getElementById('notepad-area');
+  if (!ta) return;
+  const val = ta.value.trim().replace(/\s+/g, '');
+  if (val === '2236') {
+    if (!keyVisible && !doorUnlocked) {
+      showKeyInBrowser();
+      playBeep(880, 0.08, 0.1);
+      setTimeout(() => playBeep(1100, 0.1, 0.12), 120);
+    }
+  } else if (val === 'ZERO-G') {
+    if (!window.zeroGSwitchVisible) {
+      showZeroGSwitch();
+      playBeep(660, 0.08, 0.12);
+      setTimeout(() => playBeep(880, 0.1, 0.12), 120);
+      setTimeout(() => playBeep(1100, 0.12, 0.12), 240);
+    }
+  }
+}
+ 
+// =========== ZERO-GRAVITY SYSTEM ===========
+let zeroGActive = false;
+let gravityTimer = null;
+ 
+function showZeroGSwitch() {
+  window.zeroGSwitchVisible = true;
+  const batteryWidget = document.querySelector('.battery-widget');
+  if (!batteryWidget) return;
+  
+  // Add switch next to battery
+  const switchDiv = document.createElement('div');
+  switchDiv.id = 'zero-g-switch';
+  switchDiv.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+      <span style="font-size:9px;color:#666;font-family:'Share Tech Mono',monospace;">0G</span>
+      <div onclick="toggleZeroG()" style="cursor:pointer;width:32px;height:16px;background:#333;border:2px inset #c0c0c0;border-radius:8px;position:relative;transition:all 0.2s;">
+        <div id="zg-toggle" style="width:12px;height:12px;background:#888;border-radius:50%;position:absolute;top:1px;left:2px;transition:all 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+      </div>
+    </div>`;
+  
+  batteryWidget.appendChild(switchDiv);
+}
+ 
+function toggleZeroG() {
+  zeroGActive = !zeroGActive;
+  const toggle = document.getElementById('zg-toggle');
+  
+  if (zeroGActive) {
+    // Switch ON
+    toggle.style.left = '16px';
+    toggle.style.background = '#00ff44';
+    startZeroGravity();
+    playBeep(440, 0.15, 0.15);
+    setTimeout(() => playBeep(660, 0.15, 0.15), 100);
+    setTimeout(() => playBeep(880, 0.2, 0.15), 200);
+  } else {
+    // Switch OFF
+    toggle.style.left = '2px';
+    toggle.style.background = '#888';
+    stopZeroGravity();
+    playBeep(880, 0.15, 0.15);
+    setTimeout(() => playBeep(660, 0.15, 0.15), 100);
+    setTimeout(() => playBeep(440, 0.2, 0.15), 200);
+  }
+}
+ 
+function startZeroGravity() {
+  // Get all windows
+  const windows = document.querySelectorAll('.window:not(.hidden)');
+  
+  windows.forEach(win => {
+    // Add floating physics
+    if (!win.dataset.zgPhysics) {
+      win.dataset.zgPhysics = 'true';
+      // Random initial velocity
+      win.dataset.vx = (Math.random() - 0.5) * 60; // pixels per second
+      win.dataset.vy = (Math.random() - 0.5) * 60;
+      win.dataset.rotation = Math.random() * 10 - 5; // degrees
+      win.dataset.rotationSpeed = (Math.random() - 0.5) * 30; // deg/sec
+      
+      // Add floating animation
+      win.style.transition = 'none';
+      win.style.transformOrigin = 'center center';
+    }
+  });
+  
+  // Start physics loop
+  gravityTimer = setInterval(updateZeroGPhysics, 50); // 20 FPS
+}
+ 
+function updateZeroGPhysics() {
+  const windows = document.querySelectorAll('.window[data-zg-physics="true"]:not(.hidden)');
+  const dt = 0.05; // 50ms in seconds
+  
+  windows.forEach(win => {
+    const rect = win.getBoundingClientRect();
+    let vx = parseFloat(win.dataset.vx) || 0;
+    let vy = parseFloat(win.dataset.vy) || 0;
+    let rotation = parseFloat(win.dataset.rotation) || 0;
+    let rotSpeed = parseFloat(win.dataset.rotationSpeed) || 0;
+    
+    // Get current position
+    let x = parseFloat(win.style.left) || rect.left;
+    let y = parseFloat(win.style.top) || rect.top;
+    
+    // Update position
+    x += vx * dt;
+    y += vy * dt;
+    rotation += rotSpeed * dt;
+    
+    // Bounce off edges with some energy loss
+    const padding = 20;
+    if (x < padding) { x = padding; vx = -vx * 0.8; rotSpeed *= -0.9; }
+    if (y < padding) { y = padding; vy = -vy * 0.8; rotSpeed *= -0.9; }
+    if (x > window.innerWidth - rect.width - padding) { 
+      x = window.innerWidth - rect.width - padding; 
+      vx = -vx * 0.8; 
+      rotSpeed *= -0.9;
+    }
+    if (y > window.innerHeight - rect.height - padding) { 
+      y = window.innerHeight - rect.height - padding; 
+      vy = -vy * 0.8;
+      rotSpeed *= -0.9;
+    }
+    
+    // Add slight drag
+    vx *= 0.998;
+    vy *= 0.998;
+    rotSpeed *= 0.995;
+    
+    // Apply random micro-forces (space environment)
+    vx += (Math.random() - 0.5) * 2;
+    vy += (Math.random() - 0.5) * 2;
+    
+    // Update DOM
+    win.style.left = x + 'px';
+    win.style.top = y + 'px';
+    win.style.transform = `rotate(${rotation}deg)`;
+    
+    // Store updated values
+    win.dataset.vx = vx;
+    win.dataset.vy = vy;
+    win.dataset.rotation = rotation;
+    win.dataset.rotationSpeed = rotSpeed;
+  });
+}
+ 
+function stopZeroGravity() {
+  if (gravityTimer) {
+    clearInterval(gravityTimer);
+    gravityTimer = null;
+  }
+  
+  // Reset all windows
+  const windows = document.querySelectorAll('.window[data-zg-physics="true"]');
+  windows.forEach(win => {
+    win.dataset.zgPhysics = '';
+    win.style.transition = '';
+    win.style.transform = '';
+    win.style.transformOrigin = '';
+    // Keep current position but stop movement
+  });
+}
+ 
+// =========== LOADING SCREEN ===========
+(function() {
+  const msgs = [
+    'Initializing system...',
+    'Loading kernel modules...',
+    'Mounting file system...',
+    'Starting desktop environment...',
+    'Loading user profile...',
+    'Almost there...',
+    'Welcome.'
+  ];
+  const fill = document.getElementById('load-bar-fill');
+  const pctEl = document.getElementById('load-pct');
+  const msgEl = document.getElementById('load-msg');
+  const screen = document.getElementById('loading-screen');
+
+  let pct = 0;
+  let msgIdx = 0;
+
+  function step() {
+    const inc = Math.random() * 4 + 1;
+    pct = Math.min(100, pct + inc);
+    fill.style.width = pct + '%';
+    pctEl.textContent = Math.floor(pct) + '%';
+    msgEl.textContent = msgs[Math.floor((pct / 100) * (msgs.length - 1))];
+
+    if (pct < 100) {
+      setTimeout(step, 40 + Math.random() * 60);
+    } else {
+      pctEl.textContent = '100%';
+      msgEl.textContent = 'Welcome.';
+      setTimeout(() => {
+        screen.classList.add('fade-out');
+        setTimeout(() => { screen.style.display = 'none'; }, 650);
+      }, 500);
+    }
+  }
+  setTimeout(step, 200);
+})();
+
+window.onload = () => {
+  openWindow('welcome');
+  swagHomePage();
+};
+</script>
+</body>
+</html>
+ 
