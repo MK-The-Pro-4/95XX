@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>95XX</title>
+<title>95XX — Your Retro Desktop</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
  
@@ -117,7 +117,7 @@
     position: absolute;
     width: 72px;
     display: flex; flex-direction: column; align-items: center; gap: 4px;
-    cursor: pointer; padding: 4px; border-radius: 2px;
+    cursor: pointer; padding: 4px; border-radius: 2px; touch-action: none;
   }
   .desk-icon:hover { background: rgba(0,0,128,0.3); }
   .desk-icon .icon-img {
@@ -1362,6 +1362,9 @@
     <div id="jc-hint">← → / A D move &nbsp;·&nbsp; Space / ↑ / W jump &nbsp;·&nbsp; R restart &nbsp;·&nbsp; Avoid the red spikes!</div>
   </div>
 </div>
+
+<div id="win-glitch" style="display:none;position:fixed;inset:0;z-index:99999;overflow:hidden"></div>
+<div id="blackout" style="display:none;position:fixed;inset:0;z-index:100002;background:#000"></div>
 
 <!-- GAME BEATEN SCREEN -->
 <div id="beat-screen">
@@ -2802,7 +2805,7 @@ const bStyle = document.createElement('style');
 bStyle.textContent = `@keyframes batteryPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,0,0,0.6)} 50%{box-shadow:0 0 0 4px rgba(255,0,0,0)} }`;
 document.head.appendChild(bStyle);
  
-// Drain battery at random intervals between 2-3.5 seconds
+// Drain battery at random intervals between 5-6 seconds
 function scheduleBatteryDrain() {
   if (hackPhase) {
     // Schedule next check
@@ -2832,8 +2835,8 @@ function scheduleBatteryDrain() {
     return;
   }
  
-  // Schedule next drain with random delay (2300-3800ms)
-  const randomDelay = 2300 + Math.random() * 1500;
+  // Schedule next drain with random delay (5000-6000ms)
+  const randomDelay = 5000 + Math.random() * 1000;
   setTimeout(scheduleBatteryDrain, randomDelay);
 }
  
@@ -3453,6 +3456,79 @@ function galleryZoomClose() {
   // Legacy function - not used anymore
 }
  
+// =========== DRAGGABLE DESKTOP ICONS ===========
+(function () {
+  let drag = null, justDragged = 0;
+  document.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !e.target.closest) return;
+    const ic = e.target.closest('.desk-icon');
+    if (!ic) return;
+    drag = { ic, sx: e.clientX, sy: e.clientY, ox: ic.offsetLeft, oy: ic.offsetTop, moved: false, id: e.pointerId };
+  });
+  document.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy, ic = drag.ic;
+    if (!drag.moved) {
+      if (Math.hypot(dx, dy) < 5) return;     // small wobble = just a click
+      drag.moved = true;
+      ic.style.zIndex = 50; ic.style.opacity = '0.8'; ic.style.cursor = 'grabbing';
+      try { ic.setPointerCapture(drag.id); } catch (err) {}
+    }
+    const par = ic.offsetParent || document.body;
+    const maxL = par.clientWidth - ic.offsetWidth, maxT = par.clientHeight - ic.offsetHeight;
+    ic.style.left = Math.max(0, Math.min(maxL, drag.ox + dx)) + 'px';
+    ic.style.top = Math.max(0, Math.min(maxT, drag.oy + dy)) + 'px';
+    ic.style.outline = iconOverlaps(ic, ic.offsetLeft, ic.offsetTop) ? '1px dashed #ff6666' : '';
+    e.preventDefault();
+  });
+  // does an icon at (l,t) overlap any other icon?
+  function iconOverlaps(ic, l, t) {
+    const r = l + ic.offsetWidth, b = t + ic.offsetHeight;
+    return [...document.querySelectorAll('.desk-icon')].some(o => {
+      if (o === ic) return false;
+      const ol = o.offsetLeft, ot = o.offsetTop;
+      return l < ol + o.offsetWidth && r > ol && t < ot + o.offsetHeight && b > ot;
+    });
+  }
+  // nearest free spot to (l,t), or null
+  function nearestFreeSpot(ic, l, t) {
+    const par = ic.offsetParent || document.body;
+    const maxL = par.clientWidth - ic.offsetWidth, maxT = par.clientHeight - ic.offsetHeight;
+    let best = null, bestD = Infinity;
+    const R = Math.max(maxL, maxT);
+    for (let dx = -R; dx <= R; dx += 8) for (let dy = -R; dy <= R; dy += 8) {
+      const d = dx * dx + dy * dy;
+      if (d >= bestD) continue;
+      const nl = l + dx, nt = t + dy;
+      if (nl < 0 || nt < 0 || nl > maxL || nt > maxT) continue;
+      if (!iconOverlaps(ic, nl, nt)) { best = [nl, nt]; bestD = d; }
+    }
+    return best;
+  }
+  const end = () => {
+    if (!drag) return;
+    if (drag.moved) {
+      justDragged = Date.now();
+      const ic = drag.ic;
+      ic.style.opacity = ''; ic.style.zIndex = ''; ic.style.cursor = ''; ic.style.outline = '';
+      if (iconOverlaps(ic, ic.offsetLeft, ic.offsetTop)) {
+        // icons can't sit on top of each other: slide to the nearest free spot (or back where it came from)
+        const spot = nearestFreeSpot(ic, ic.offsetLeft, ic.offsetTop) || [drag.ox, drag.oy];
+        ic.style.transition = 'left .15s, top .15s';
+        ic.style.left = spot[0] + 'px'; ic.style.top = spot[1] + 'px';
+        setTimeout(() => { ic.style.transition = ''; }, 200);
+      }
+    }
+    drag = null;
+  };
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+  // dropping an icon shouldn't count as a double-click that opens the app
+  document.addEventListener('dblclick', e => {
+    if (Date.now() - justDragged < 400 && e.target.closest && e.target.closest('.desk-icon')) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+})();
+
 // =========== WHITE CURSOR TRAIL (reward) ===========
 let cursorTrailOn = false, trailPts = [], trailCtx = null;
 function enableCursorTrail() {
@@ -3519,11 +3595,39 @@ function supahDoorClick() {
 
 // =========== GAME BEATEN / REBOOT ===========
 function beatTheGame() {
-  document.getElementById('beat-screen').style.display = 'flex';
-  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => { try { playBeep(f, 0.14, 0.12); } catch (e) {} }, i * 140));
+  hackPhase = true;                       // stop battery drain / hack from interrupting the ending
+  const ov = document.getElementById('win-glitch');
+  ov.style.display = 'block';             // invisible, just blocks clicks during the ending
+  // 1) 2.5 seconds of nothing...
+  setTimeout(() => {
+    // 2) ...then ~2 seconds of glitching...
+    document.body.classList.add('glitching');
+    try { playBoom(0.4); setTimeout(() => playStatic(0.3, 0.4), 80); } catch (e) {}
+    const stopLoop = startGlitchLoop();
+    const bars = setInterval(() => {
+      const g = document.createElement('div');
+      const gw = 60 + Math.random() * 300, gh = 8 + Math.random() * 40;
+      g.style.cssText = `position:absolute;left:${Math.random() * (window.innerWidth - gw)}px;top:${Math.random() * (window.innerHeight - gh)}px;width:${gw}px;height:${gh}px;background:${randGlitchColor()};opacity:0.7;pointer-events:none;mix-blend-mode:screen;`;
+      ov.appendChild(g);
+      setTimeout(() => g.remove(), 120 + Math.random() * 200);
+    }, 60);
+    const scan = document.createElement('div'); scan.className = 'glitch-line'; ov.appendChild(scan);
+    setTimeout(() => {
+      clearInterval(bars); stopLoop();
+      document.body.classList.remove('glitching');
+      ov.style.display = 'none'; ov.innerHTML = '';
+      try { playScreech(80, 0.05, 0.35); } catch (e) {}
+      // 3) ...then the win screen
+      document.getElementById('beat-screen').style.display = 'flex';
+      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => { try { playBeep(f, 0.14, 0.12); } catch (e) {} }, i * 140));
+    }, 2000);
+  }, 2500);
 }
 function rebootSystem() {
-  location.reload(); // whole system restarts from the loading screen
+  // black out for ~1 second, then the whole system reboots from the loading screen
+  document.getElementById('blackout').style.display = 'block';
+  try { playStatic(0.15, 0.25); } catch (e) {}
+  setTimeout(() => location.reload(), 1000);
 }
 
 // ===== JUMPING CUBE: core (physics + levels, no DOM) =====
